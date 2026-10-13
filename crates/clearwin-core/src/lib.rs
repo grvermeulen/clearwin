@@ -7,18 +7,24 @@
 mod catalog;
 pub mod cmdline;
 pub mod defender;
+pub mod drivers;
 pub mod duplicates;
 mod engine;
 pub mod files;
 mod firefox;
+pub mod monitor;
 mod paths;
+pub mod performance;
 mod processes;
+pub mod ps;
 mod recycle_bin;
 pub mod registry;
 pub mod schedule;
 pub mod settings;
+pub mod software;
 pub mod startup;
 pub mod storage;
+pub mod system;
 pub mod uninstall;
 
 pub use catalog::{catalog, Action, Category, NameFilter, Target};

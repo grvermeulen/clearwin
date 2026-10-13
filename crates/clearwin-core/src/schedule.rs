@@ -4,34 +4,58 @@ use std::path::Path;
 use std::time::SystemTime;
 
 use crate::settings::{self, Frequency, HistoryEntry, Schedule};
-use crate::{catalog, clean_category, scan_category_excluding, Paths, RunningApps};
+use crate::{catalog, clean_category, scan_category_excluding, Category, Paths, RunningApps};
 
 pub const TASK_NAME: &str = "ClearWin automatic clean";
 /// Command-line flag the scheduled task starts ClearWin with.
 pub const AUTO_CLEAN_FLAG: &str = "--auto-clean";
 
-/// Cleans the categories saved in settings, without a window, and records it in the history.
-pub fn run_auto_clean(config_dir: &Path) -> HistoryEntry {
+/// The categories ticked in the Cleaner (or the defaults if never changed).
+fn ticked(settings: &settings::Settings) -> Vec<Category> {
+    catalog(&Paths::from_env())
+        .into_iter()
+        .filter(|c| match &settings.cleaner_selection {
+            Some(ids) => ids.contains(&c.id),
+            None => c.default_selected,
+        })
+        .collect()
+}
+
+/// How many bytes cleaning the ticked categories would free right now. Deletes nothing.
+pub fn measure_junk(config_dir: &Path) -> u64 {
     let settings = settings::load(config_dir);
-    let categories = catalog(&Paths::from_env());
-    let selected: Vec<_> = match &settings.cleaner_selection {
-        Some(ids) => categories.iter().filter(|c| ids.contains(&c.id)).collect(),
-        None => categories.iter().filter(|c| c.default_selected).collect(),
-    };
+    let running = RunningApps::snapshot();
+    let now = SystemTime::now();
+    ticked(&settings)
+        .iter()
+        .map(|c| scan_category_excluding(c, &running, now, &settings.exclusions).summary(0))
+        .filter(|s| s.blocked_reason.is_none())
+        .map(|s| s.total_bytes)
+        .sum()
+}
+
+/// Cleans the categories ticked in the Cleaner and records it in the history as `action`.
+pub fn clean_ticked(config_dir: &Path, action: &str) -> HistoryEntry {
+    let settings = settings::load(config_dir);
     let running = RunningApps::snapshot();
     let now = SystemTime::now();
     let (mut items, mut bytes, mut skipped) = (0, 0, 0);
-    for category in selected {
-        let scan = scan_category_excluding(category, &running, now, &settings.exclusions);
-        let result = clean_category(category, &scan, &running, now);
+    for category in ticked(&settings) {
+        let scan = scan_category_excluding(&category, &running, now, &settings.exclusions);
+        let result = clean_category(&category, &scan, &running, now);
         items += result.removed_items;
         bytes += result.freed_bytes;
         skipped += result.failed_items + u64::from(result.skipped_reason.is_some());
     }
     let details = (skipped > 0).then(|| format!("{skipped} items in use or skipped"));
-    let entry = HistoryEntry::now("Automatic clean", items, bytes, details);
+    let entry = HistoryEntry::now(action, items, bytes, details);
     let _ = settings::append_history(config_dir, &entry);
     entry
+}
+
+/// Cleans the categories saved in settings, without a window, and records it in the history.
+pub fn run_auto_clean(config_dir: &Path) -> HistoryEntry {
+    clean_ticked(config_dir, "Automatic clean")
 }
 
 /// Arguments for `schtasks /Create` that run `exe --auto-clean` on the schedule.

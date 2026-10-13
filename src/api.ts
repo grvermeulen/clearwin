@@ -45,6 +45,8 @@ export const api = {
   listCategories: () => invoke<Category[]>("list_categories"),
   scan: (ids: string[]) => invoke<CategorySummary[]>("scan", { ids }),
   clean: (ids: string[]) => invoke<CategoryClean[]>("clean", { ids }),
+  measureJunk: () => invoke<number>("measure_junk"),
+  cleanJunkNow: () => invoke<number>("clean_junk_now"),
   isAdmin: () => invoke<boolean>("is_admin"),
   restartAsAdmin: () => invoke<void>("restart_as_admin"),
   onScanProgress: (handler: (p: ScanProgress) => void): Promise<UnlistenFn> =>
@@ -98,6 +100,7 @@ export interface StorageProgress {
 export const storageApi = {
   listDrives: () => invoke<Drive[]>("list_drives"),
   homeFolder: () => invoke<string | null>("home_folder"),
+  cloudFolders: () => invoke<{ name: string; path: string }[]>("cloud_folders"),
   cancel: () => invoke<void>("cancel_storage"),
   analyze: (path: string) => invoke<Level>("analyze_storage", { path }),
   level: (segments: string[]) => invoke<Level>("storage_level", { segments }),
@@ -204,6 +207,7 @@ export interface Settings {
   cleanerSelection: string[] | null;
   exclusions: string[];
   schedule: Schedule | null;
+  cleanOnBrowserClose: boolean;
 }
 
 export interface HistoryEntry {
@@ -220,4 +224,91 @@ export const settingsApi = {
   setExclusions: (paths: string[]) => invoke<Settings>("set_exclusions", { paths }),
   setSchedule: (schedule: Schedule | null) => invoke<Settings>("set_schedule", { schedule }),
   history: () => invoke<HistoryEntry[]>("get_history"),
+  setBrowserCloseCleaning: (enabled: boolean) => invoke<Settings>("set_browser_close_cleaning", { enabled }),
+};
+
+export interface SoftwareUpdate {
+  name: string;
+  id: string;
+  version: string;
+  available: string;
+  source: string;
+}
+
+export interface DriverUpdate {
+  id: string;
+  title: string;
+  manufacturer: string;
+  driverClass: string;
+  date: number | null;
+  sizeBytes: number;
+}
+
+export interface ProblemDevice {
+  name: string;
+  class: string;
+  status: string;
+  problem: number;
+  description: string;
+}
+
+export interface DriverScan {
+  updates: DriverUpdate[];
+  problemDevices: ProblemDevice[];
+}
+
+export interface InstallResult {
+  installed: number;
+  failed: number;
+  rebootRequired: boolean;
+}
+
+export const updatesApi = {
+  listSoftware: () => invoke<SoftwareUpdate[]>("list_software_updates"),
+  updateSoftware: (id: string | null) => invoke<void>("update_software", { id }),
+  scanDrivers: () => invoke<DriverScan>("scan_drivers"),
+  installDrivers: (ids: string[]) => invoke<InstallResult>("install_drivers", { ids }),
+};
+
+export interface SystemInfo {
+  computer: string;
+  manufacturer: string;
+  model: string;
+  os: string;
+  osVersion: string;
+  osBuild: string;
+  installed: number | null;
+  lastBoot: number | null;
+  cpu: string;
+  cores: number;
+  threads: number;
+  cpuMhz: number;
+  memoryBytes: number;
+  memoryModules: { slot: string; capacityBytes: number; speedMhz: number; manufacturer: string }[];
+  gpus: { name: string; driverVersion: string; resolution: string }[];
+  disks: { name: string; media: string; bus: string; sizeBytes: number; health: string }[];
+  motherboard: string;
+  bios: string;
+  batteryPercent: number | null;
+}
+
+export interface PowerPlan {
+  guid: string;
+  name: string;
+  active: boolean;
+}
+
+export interface HeavyApp {
+  name: string;
+  processes: number;
+  memoryBytes: number;
+  cpuPercent: number;
+}
+
+export const performanceApi = {
+  systemInfo: () => invoke<SystemInfo>("system_info"),
+  powerPlans: () => invoke<PowerPlan[]>("list_power_plans"),
+  setPowerPlan: (guid: string) => invoke<void>("set_power_plan", { guid }),
+  heavyApps: () => invoke<HeavyApp[]>("heavy_apps"),
+  endApp: (name: string) => invoke<number>("end_app", { name }),
 };

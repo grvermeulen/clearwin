@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use clearwin_core::schedule;
 use clearwin_core::settings::{self, config_dir, HistoryEntry, Schedule, Settings};
+use clearwin_core::{monitor, schedule};
 
 /// Records something ClearWin did; a failure to write history never fails the action.
 pub fn record(action: &str, items: u64, bytes: u64, details: Option<String>) {
@@ -56,4 +56,16 @@ pub fn set_schedule(schedule: Option<Schedule>) -> Result<Settings, String> {
 #[tauri::command]
 pub fn get_history() -> Vec<HistoryEntry> {
     settings::read_history(&config_dir())
+}
+
+#[tauri::command]
+pub fn set_browser_close_cleaning(enabled: bool) -> Result<Settings, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    // Save first: a monitor that is starting reads the setting and would stop at once otherwise.
+    let saved = update(|s| s.clean_on_browser_close = enabled)?;
+    if let Err(e) = monitor::apply(&exe, enabled) {
+        let _ = update(|s| s.clean_on_browser_close = false);
+        return Err(e);
+    }
+    Ok(saved)
 }

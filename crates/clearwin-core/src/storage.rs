@@ -266,6 +266,60 @@ pub fn drives() -> Vec<Drive> {
     drives
 }
 
+/// A cloud folder (OneDrive, Google Drive, ...) found on this PC.
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudFolder {
+    pub name: String,
+    pub path: PathBuf,
+}
+
+/// Synced cloud-drive folders that exist on this PC, for the duplicate finder.
+pub fn cloud_folders() -> Vec<CloudFolder> {
+    let env = |name: &str| std::env::var_os(name).map(PathBuf::from);
+    let home = env("USERPROFILE");
+    let mut candidates: Vec<(&str, Option<PathBuf>)> = vec![
+        ("OneDrive", env("OneDriveConsumer")),
+        ("OneDrive (work or school)", env("OneDriveCommercial")),
+        ("OneDrive", env("OneDrive")),
+        ("Dropbox", home.as_ref().map(|h| h.join("Dropbox"))),
+        ("iCloud Drive", home.as_ref().map(|h| h.join("iCloudDrive"))),
+    ];
+    // Google Drive for desktop shows up as its own drive letter.
+    for drive in drives() {
+        for name in ["My Drive", "Mijn Drive"] {
+            candidates.push(("Google Drive", Some(drive.mount_point.join(name))));
+        }
+    }
+    let mut found: Vec<CloudFolder> = Vec::new();
+    for (name, path) in candidates {
+        if let Some(path) = path.filter(|p| p.is_dir()) {
+            if !found.iter().any(|f| f.path == path) {
+                found.push(CloudFolder {
+                    name: name.to_string(),
+                    path,
+                });
+            }
+        }
+    }
+    found
+}
+
+/// The file is only a placeholder for a copy in the cloud; reading it would download it.
+#[cfg(windows)]
+pub fn is_cloud_only(meta: &fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    const OFFLINE: u32 = 0x1000;
+    const RECALL_ON_OPEN: u32 = 0x4_0000;
+    const RECALL_ON_DATA_ACCESS: u32 = 0x40_0000;
+    meta.file_attributes() & (OFFLINE | RECALL_ON_OPEN | RECALL_ON_DATA_ACCESS) != 0
+}
+
+#[cfg(not(windows))]
+pub fn is_cloud_only(_meta: &fs::Metadata) -> bool {
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

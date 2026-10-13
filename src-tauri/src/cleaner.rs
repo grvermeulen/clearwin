@@ -107,3 +107,28 @@ pub async fn clean(
     .await
     .map_err(|e| e.to_string())
 }
+
+/// Bytes the Cleaner's ticked categories would free, for the health check. Leaves the
+/// Cleaner's own scan results alone.
+#[tauri::command]
+pub async fn measure_junk() -> Result<u64, String> {
+    crate::security::blocking(|| {
+        Ok(clearwin_core::schedule::measure_junk(
+            &clearwin_core::settings::config_dir(),
+        ))
+    })
+    .await
+}
+
+/// Scans and cleans the ticked categories in one go, as the scheduled clean does.
+#[tauri::command]
+pub async fn clean_junk_now() -> Result<u64, String> {
+    crate::security::blocking(|| {
+        Ok(clearwin_core::schedule::clean_ticked(
+            &clearwin_core::settings::config_dir(),
+            "Cleaned from health check",
+        )
+        .bytes)
+    })
+    .await
+}

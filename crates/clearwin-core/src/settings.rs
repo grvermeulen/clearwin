@@ -21,6 +21,8 @@ pub struct Settings {
     /// Folders and files the cleaner never touches.
     pub exclusions: Vec<PathBuf>,
     pub schedule: Option<Schedule>,
+    /// Clean a browser's ticked categories as soon as it is closed.
+    pub clean_on_browser_close: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -149,6 +151,7 @@ mod tests {
                 frequency: Frequency::Weekly,
                 time: "10:00".into(),
             }),
+            clean_on_browser_close: true,
         };
         save(dir.path(), &settings).unwrap();
         assert_eq!(load(dir.path()), settings);

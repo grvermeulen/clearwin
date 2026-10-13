@@ -6,7 +6,9 @@ use std::time::Duration;
 
 use clearwin_core::duplicates::{self, DuplicateGroup};
 use clearwin_core::files::{self, RecycleReport};
-use clearwin_core::storage::{self, Drive, FolderAnalysis, LargeFile, Level, Progress};
+use clearwin_core::storage::{
+    self, CloudFolder, Drive, FolderAnalysis, LargeFile, Level, Progress,
+};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
@@ -63,6 +65,11 @@ async fn run_job<T: Send + 'static>(
 #[tauri::command]
 pub fn list_drives() -> Vec<Drive> {
     storage::drives()
+}
+
+#[tauri::command]
+pub fn cloud_folders() -> Vec<CloudFolder> {
+    storage::cloud_folders()
 }
 
 #[tauri::command]

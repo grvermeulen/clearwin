@@ -14,7 +14,7 @@ function when(unixSeconds: number | null): string {
 }
 
 /** Problems worth telling the user about, in plain words. */
-function problems(s: DefenderStatus): string[] {
+export function problems(s: DefenderStatus): string[] {
   const out: string[] = [];
   if (!s.antivirusEnabled) out.push("Microsoft Defender antivirus is turned off.");
   else if (!s.realTimeProtection)

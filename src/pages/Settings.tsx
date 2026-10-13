@@ -49,6 +49,29 @@ export default function Settings() {
       />
 
       <section className="card">
+        <h2>Clean browsers when they close</h2>
+        <p className="muted">
+          ClearWin runs quietly in the background and cleans a browser the moment you close it, using the
+          browser items ticked in the Cleaner. It starts with Windows while this is on.
+        </p>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={settings.cleanOnBrowserClose}
+            onChange={(e) =>
+              save(
+                settingsApi.setBrowserCloseCleaning(e.target.checked),
+                e.target.checked
+                  ? "Browsers are now cleaned when you close them."
+                  : "Browsers are no longer cleaned when you close them.",
+              )
+            }
+          />
+          Clean automatically when I close a browser
+        </label>
+      </section>
+
+      <section className="card">
         <h2>Never clean</h2>
         <p className="muted">
           The Cleaner skips these folders and files, including during automatic cleaning.

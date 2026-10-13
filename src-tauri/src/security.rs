@@ -13,7 +13,7 @@ pub struct ThreatView {
     handled: bool,
 }
 
-async fn blocking<T: Send + 'static>(
+pub async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(f)

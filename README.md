@@ -12,13 +12,16 @@ The installer is not code-signed, so Windows SmartScreen warns you the first tim
 
 ## What it does
 
-| Area     | Features                                                                                         |
-| -------- | ------------------------------------------------------------------------------------------------ |
-| Cleaner  | Temp files, Recycle Bin, thumbnail and shader caches, crash dumps, Windows Update downloads, browser cache / history / cookies (Chrome, Edge, Brave, Firefox) |
-| Storage  | Space map of any drive or folder, the 500 largest files, duplicate finder (compares contents)    |
-| Tools    | Startup programs on/off, uninstaller, registry cleanup with automatic backups and restore         |
-| Security | Microsoft Defender status, quick / full / folder scans, definition updates, threat history       |
-| Settings | Scheduled automatic cleaning, folders and files to never clean, activity history, auto-update     |
+| Area         | Features                                                                                                                                                         |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Health check | One score out of 100 for protection, junk, program updates, free space, startup programs and drivers, with Fix all                                               |
+| Cleaner      | Temp files, Recycle Bin, thumbnail and shader caches, crash dumps, Windows Update downloads, browser cache / history / cookies (Chrome, Edge, Brave, Firefox)    |
+| Storage      | Space map of any drive or folder, the 500 largest files, duplicate finder (compares contents, with one-click OneDrive / Google Drive / Dropbox / iCloud folders) |
+| Tools        | Startup programs on/off, uninstaller, registry cleanup with automatic backups and restore                                                                        |
+| Updates      | Program updates through winget, driver updates from Windows Update, devices with a problem                                                                       |
+| Performance  | Power plan switcher, programs using the most memory with Close, system info (CPU, memory, graphics, disk health)                                                 |
+| Security     | Microsoft Defender status, quick / full / folder scans, definition updates, threat history                                                                       |
+| Settings     | Scheduled automatic cleaning, clean a browser as soon as it closes, folders and files to never clean, activity history, auto-update                              |
 
 ### Safety rules
 
@@ -32,6 +35,9 @@ The installer is not code-signed, so Windows SmartScreen warns you the first tim
   copy of a duplicate can't be removed.
 - **Registry changes are backed up.** Every affected key is exported to a `.reg` file first, and
   backups can be restored from the Registry tab. Only entries pointing at files that are gone are flagged.
+- **Cloud files stay in the cloud.** The duplicate finder skips files that are only stored online, so
+  nothing gets downloaded just to compare it.
+- **Drivers only from Windows Update.** No third-party driver sites.
 - **Startup changes are reversible.** Programs are switched off the same way Task Manager does it.
 
 ## Updates

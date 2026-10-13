@@ -428,9 +428,14 @@ function Duplicates() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [clouds, setClouds] = useState<{ name: string; path: string }[]>([]);
 
   useEffect(() => {
     storageApi.homeFolder().then((home) => home && setRoots([home]));
+    storageApi
+      .cloudFolders()
+      .then(setClouds)
+      .catch(() => setClouds([]));
   }, []);
 
   async function search() {
@@ -507,6 +512,19 @@ function Duplicates() {
           >
             + Add folder
           </button>
+          {clouds
+            .filter((c) => !roots.includes(c.path))
+            .map((c) => (
+              <button
+                key={c.path}
+                className="link"
+                disabled={busy}
+                title={`${c.path} (files that are only in the cloud are skipped, so nothing is downloaded)`}
+                onClick={() => setRoots([...roots, c.path])}
+              >
+                + {c.name}
+              </button>
+            ))}
         </div>
         <label className="muted">
           Larger than{" "}

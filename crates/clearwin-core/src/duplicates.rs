@@ -14,7 +14,7 @@ use rayon::prelude::*;
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::storage::{unix_seconds, Progress};
+use crate::storage::{is_cloud_only, unix_seconds, Progress};
 
 const PREFIX_BYTES: u64 = 64 * 1024;
 
@@ -109,7 +109,11 @@ pub fn find_duplicates(
             }
             let Ok(meta) = entry.metadata() else { continue };
             progress.files.fetch_add(1, Ordering::Relaxed);
-            if meta.len() < min_size || !seen.insert(entry.path().to_path_buf()) {
+            // Cloud-only files would be downloaded just to compare them.
+            if meta.len() < min_size
+                || is_cloud_only(&meta)
+                || !seen.insert(entry.path().to_path_buf())
+            {
                 continue;
             }
             by_size.entry(meta.len()).or_default().push(DuplicateFile {
