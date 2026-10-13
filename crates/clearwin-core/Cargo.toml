@@ -6,9 +6,12 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+blake3 = "1"
+rayon = "1"
 rusqlite = { version = "0.37", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
-sysinfo = { version = "0.39", default-features = false, features = ["system"] }
+sysinfo = { version = "0.39", default-features = false, features = ["system", "disk"] }
+trash = "5"
 walkdir = "2"
 
 [target.'cfg(windows)'.dependencies]

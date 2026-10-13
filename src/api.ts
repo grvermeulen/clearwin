@@ -50,3 +50,63 @@ export const api = {
   onScanProgress: (handler: (p: ScanProgress) => void): Promise<UnlistenFn> =>
     listen<ScanProgress>("scan-progress", (e) => handler(e.payload)),
 };
+
+export interface Drive {
+  mountPoint: string;
+  name: string;
+  totalBytes: number;
+  freeBytes: number;
+}
+
+export interface LevelEntry {
+  name: string;
+  size: number;
+  fileCount: number;
+  isDir: boolean;
+  hasChildren: boolean;
+  incomplete: boolean;
+}
+
+export interface Level {
+  path: string;
+  size: number;
+  fileCount: number;
+  entries: LevelEntry[];
+}
+
+export interface LargeFile {
+  size: number;
+  path: string;
+  modified: number | null;
+}
+
+export interface DuplicateGroup {
+  size: number;
+  files: { path: string; modified: number | null }[];
+}
+
+export interface RecycleReport {
+  moved: string[];
+  failures: string[];
+}
+
+export interface StorageProgress {
+  files: number;
+  bytes: number;
+}
+
+export const storageApi = {
+  listDrives: () => invoke<Drive[]>("list_drives"),
+  homeFolder: () => invoke<string | null>("home_folder"),
+  cancel: () => invoke<void>("cancel_storage"),
+  analyze: (path: string) => invoke<Level>("analyze_storage", { path }),
+  level: (segments: string[]) => invoke<Level>("storage_level", { segments }),
+  largestFiles: () => invoke<LargeFile[]>("largest_files"),
+  findDuplicates: (roots: string[], minSize: number) =>
+    invoke<DuplicateGroup[]>("find_duplicates", { roots, minSize }),
+  recycleDuplicates: (paths: string[]) => invoke<RecycleReport>("recycle_duplicates", { paths }),
+  recycleLargeFiles: (paths: string[]) => invoke<RecycleReport>("recycle_large_files", { paths }),
+  reveal: (path: string) => invoke<void>("reveal", { path }),
+  onProgress: (handler: (p: StorageProgress) => void): Promise<UnlistenFn> =>
+    listen<StorageProgress>("storage-progress", (e) => handler(e.payload)),
+};

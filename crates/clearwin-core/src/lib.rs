@@ -5,11 +5,14 @@
 //! deletes only entries from that list, re-checking each one first.
 
 mod catalog;
+pub mod duplicates;
 mod engine;
+pub mod files;
 mod firefox;
 mod paths;
 mod processes;
 mod recycle_bin;
+pub mod storage;
 
 pub use catalog::{catalog, Action, Category, NameFilter, Target};
 pub use engine::{

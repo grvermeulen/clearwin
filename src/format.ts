@@ -18,3 +18,8 @@ export function formatCount(n: number): string {
 export function plural(n: number, one: string, many: string): string {
   return `${formatCount(n)} ${n === 1 ? one : many}`;
 }
+
+export function formatDate(unixSeconds: number | null): string {
+  if (unixSeconds == null) return "";
+  return new Date(unixSeconds * 1000).toLocaleDateString();
+}
