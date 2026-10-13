@@ -6,6 +6,7 @@
 
 mod catalog;
 pub mod cmdline;
+pub mod defender;
 pub mod duplicates;
 mod engine;
 pub mod files;

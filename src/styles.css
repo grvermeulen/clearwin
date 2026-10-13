@@ -252,3 +252,14 @@ input.search {
 .switch span::before { content: ""; position: absolute; width: 14px; height: 14px; left: 2px; top: 2px; background: white; border-radius: 50%; transition: transform 0.15s; }
 .switch input:checked + span { background: var(--accent); }
 .switch input:checked + span::before { transform: translateX(16px); }
+
+.good { color: var(--success); }
+td.warn, strong.warn { color: var(--warn); font-size: inherit; margin: 0; }
+.hero { border-radius: 10px; padding: 16px 20px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.hero.ok { background: var(--success-bg); color: var(--success); }
+.hero.bad { background: var(--banner-bg); color: var(--warn); }
+.hero p, .hero ul { margin: 0; color: var(--text); }
+.hero-title { font-size: 19px; font-weight: 600; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.fact { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+progress.wide { width: 100%; }

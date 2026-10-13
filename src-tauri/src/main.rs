@@ -3,6 +3,7 @@
 
 mod cleaner;
 mod elevation;
+mod security;
 mod storage;
 mod tools;
 
@@ -36,6 +37,11 @@ fn main() {
             tools::fix_registry,
             tools::list_registry_backups,
             tools::restore_registry_backup,
+            security::defender_status,
+            security::defender_threats,
+            security::defender_scan,
+            security::defender_update,
+            security::open_windows_security,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start ClearWin");

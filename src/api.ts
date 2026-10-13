@@ -161,3 +161,36 @@ export const toolsApi = {
   listBackups: () => invoke<BackupInfo[]>("list_registry_backups"),
   restoreBackup: (path: string) => invoke<number>("restore_registry_backup", { path }),
 };
+
+export interface DefenderStatus {
+  serviceEnabled: boolean;
+  antivirusEnabled: boolean;
+  realTimeProtection: boolean;
+  tamperProtection: boolean;
+  runningMode: string;
+  signatureVersion: string;
+  signatureUpdated: number | null;
+  signatureAgeDays: number;
+  quickScanEnded: number | null;
+  fullScanEnded: number | null;
+  products: string[];
+}
+
+export interface Threat {
+  name: string;
+  severity: string;
+  status: string;
+  detected: number | null;
+  resources: string[];
+  handled: boolean;
+}
+
+export type ScanKind = "quick" | "full" | "custom";
+
+export const securityApi = {
+  status: () => invoke<DefenderStatus>("defender_status"),
+  threats: () => invoke<Threat[]>("defender_threats"),
+  scan: (kind: ScanKind, path?: string) => invoke<void>("defender_scan", { kind, path: path ?? null }),
+  update: () => invoke<void>("defender_update"),
+  openWindowsSecurity: () => invoke<void>("open_windows_security"),
+};
