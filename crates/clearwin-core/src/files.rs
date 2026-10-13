@@ -20,7 +20,9 @@ pub fn move_to_recycle_bin(paths: &[PathBuf]) -> RecycleReport {
         match std::fs::symlink_metadata(path) {
             Ok(meta) if meta.file_type().is_file() => {}
             Ok(_) => {
-                report.failures.push(format!("{}: not a regular file", path.display()));
+                report
+                    .failures
+                    .push(format!("{}: not a regular file", path.display()));
                 continue;
             }
             Err(e) => {
@@ -50,7 +52,10 @@ pub fn reveal_in_explorer(path: &Path) -> std::io::Result<()> {
     #[cfg(not(windows))]
     {
         let _ = path;
-        Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "only available on Windows"))
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "only available on Windows",
+        ))
     }
 }
 

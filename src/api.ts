@@ -110,3 +110,54 @@ export const storageApi = {
   onProgress: (handler: (p: StorageProgress) => void): Promise<UnlistenFn> =>
     listen<StorageProgress>("storage-progress", (e) => handler(e.payload)),
 };
+
+export interface StartupItem {
+  id: string;
+  name: string;
+  command: string;
+  location: string;
+  enabled: boolean;
+  targetMissing: boolean;
+  needsAdmin: boolean;
+}
+
+export interface InstalledApp {
+  id: string;
+  name: string;
+  publisher: string | null;
+  version: string | null;
+  installDate: string | null;
+  sizeBytes: number | null;
+}
+
+export interface RegistryIssue {
+  id: number;
+  kind: string;
+  key: string;
+  value: string | null;
+  missingPath: string;
+  needsAdmin: boolean;
+}
+
+export interface FixReport {
+  fixed: number;
+  failures: string[];
+  backup: string | null;
+}
+
+export interface BackupInfo {
+  path: string;
+  created: number;
+  issues: RegistryIssue[];
+}
+
+export const toolsApi = {
+  listStartup: () => invoke<StartupItem[]>("list_startup"),
+  setStartupEnabled: (id: string, enabled: boolean) => invoke<void>("set_startup_enabled", { id, enabled }),
+  listApps: () => invoke<InstalledApp[]>("list_apps"),
+  uninstallApp: (id: string) => invoke<void>("uninstall_app", { id }),
+  scanRegistry: () => invoke<RegistryIssue[]>("scan_registry"),
+  fixRegistry: (ids: number[]) => invoke<FixReport>("fix_registry", { ids }),
+  listBackups: () => invoke<BackupInfo[]>("list_registry_backups"),
+  restoreBackup: (path: string) => invoke<number>("restore_registry_backup", { path }),
+};

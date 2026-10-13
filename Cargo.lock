@@ -367,11 +367,13 @@ dependencies = [
  "rayon",
  "rusqlite",
  "serde",
+ "serde_json",
  "sysinfo",
  "tempfile",
  "trash",
  "walkdir",
  "windows-sys 0.61.2",
+ "winreg",
 ]
 
 [[package]]

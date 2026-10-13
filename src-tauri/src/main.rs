@@ -4,12 +4,14 @@
 mod cleaner;
 mod elevation;
 mod storage;
+mod tools;
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(cleaner::CleanerState::default())
         .manage(storage::StorageState::default())
+        .manage(tools::ToolsState::default())
         .invoke_handler(tauri::generate_handler![
             cleaner::list_categories,
             cleaner::scan,
@@ -26,6 +28,14 @@ fn main() {
             storage::recycle_duplicates,
             storage::recycle_large_files,
             storage::reveal,
+            tools::list_startup,
+            tools::set_startup_enabled,
+            tools::list_apps,
+            tools::uninstall_app,
+            tools::scan_registry,
+            tools::fix_registry,
+            tools::list_registry_backups,
+            tools::restore_registry_backup,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start ClearWin");

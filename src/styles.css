@@ -229,3 +229,26 @@ select { font: inherit; background: var(--surface); color: var(--text); border: 
 .dup-group { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
 .dup-file { display: flex; gap: 8px; align-items: center; padding: 3px 0; cursor: pointer; }
 .dup-file .path { flex: 1; font-size: 12px; }
+
+.small { font-size: 12px; }
+.nowrap { white-space: nowrap; }
+td.path-cell { max-width: 0; width: 100%; }
+td.path-cell .path { display: block; }
+.warn-tag { color: var(--warn); border-color: var(--warn); }
+.section-title { margin: 20px 0 6px; font-size: 15px; }
+input.search {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  min-width: 260px;
+}
+.toolbar > input.search { flex: 0 1 320px; }
+.switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch span { position: absolute; inset: 0; background: var(--border); border-radius: 9px; cursor: pointer; transition: background 0.15s; }
+.switch span::before { content: ""; position: absolute; width: 14px; height: 14px; left: 2px; top: 2px; background: white; border-radius: 50%; transition: transform 0.15s; }
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::before { transform: translateX(16px); }

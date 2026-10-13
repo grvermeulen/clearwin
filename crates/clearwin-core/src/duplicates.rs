@@ -80,7 +80,10 @@ fn split_by_hash(
                     by_hash.entry(hash).or_default().push(file);
                 }
             }
-            by_hash.into_values().filter(|g| g.len() > 1).collect::<Vec<_>>()
+            by_hash
+                .into_values()
+                .filter(|g| g.len() > 1)
+                .collect::<Vec<_>>()
         })
         .collect()
 }
@@ -88,7 +91,11 @@ fn split_by_hash(
 /// Finds groups of identical files of at least `min_size` bytes under `roots`.
 ///
 /// Groups are ordered by wasted space, largest first.
-pub fn find_duplicates(roots: &[PathBuf], min_size: u64, progress: &Progress) -> Vec<DuplicateGroup> {
+pub fn find_duplicates(
+    roots: &[PathBuf],
+    min_size: u64,
+    progress: &Progress,
+) -> Vec<DuplicateGroup> {
     let min_size = min_size.max(1);
     let mut seen = HashSet::new();
     let mut by_size: HashMap<u64, Vec<DuplicateFile>> = HashMap::new();
@@ -112,7 +119,8 @@ pub fn find_duplicates(roots: &[PathBuf], min_size: u64, progress: &Progress) ->
         }
     }
 
-    let candidates: Vec<Vec<DuplicateFile>> = by_size.into_values().filter(|g| g.len() > 1).collect();
+    let candidates: Vec<Vec<DuplicateFile>> =
+        by_size.into_values().filter(|g| g.len() > 1).collect();
     let after_prefix = split_by_hash(candidates, Some(PREFIX_BYTES), progress);
     // Files no bigger than the prefix were already hashed completely.
     let (small, large): (Vec<_>, Vec<_>) = after_prefix
@@ -146,7 +154,11 @@ pub fn check_keeps_a_copy(groups: &[DuplicateGroup], selected: &[PathBuf]) -> Re
     let selected: HashSet<&PathBuf> = selected.iter().collect();
     let mut known = HashSet::new();
     for group in groups {
-        let kept = group.files.iter().filter(|f| !selected.contains(&f.path)).count();
+        let kept = group
+            .files
+            .iter()
+            .filter(|f| !selected.contains(&f.path))
+            .count();
         if kept == 0 {
             return Err(format!(
                 "Every copy of {} is selected. Keep at least one.",
@@ -191,7 +203,10 @@ mod tests {
         assert_eq!(groups.len(), 2);
         assert_eq!(groups[0].size, 200_000);
         assert_eq!(groups[0].files.len(), 2);
-        assert!(groups[0].files.iter().all(|f| !f.path.ends_with("almost.jpg")));
+        assert!(groups[0]
+            .files
+            .iter()
+            .all(|f| !f.path.ends_with("almost.jpg")));
         assert_eq!(groups[1].files.len(), 2);
         assert_eq!(groups[0].wasted_bytes(), 200_000);
     }
@@ -206,7 +221,11 @@ mod tests {
         assert!(find_duplicates(&roots, 100, &Progress::default()).is_empty());
         let groups = find_duplicates(&roots, 1, &Progress::default());
         assert_eq!(groups.len(), 1);
-        assert_eq!(groups[0].files.len(), 2, "a file found via two roots counts once");
+        assert_eq!(
+            groups[0].files.len(),
+            2,
+            "a file found via two roots counts once"
+        );
     }
 
     #[test]
@@ -214,8 +233,14 @@ mod tests {
         let group = DuplicateGroup {
             size: 1,
             files: vec![
-                DuplicateFile { path: "a".into(), modified: None },
-                DuplicateFile { path: "b".into(), modified: None },
+                DuplicateFile {
+                    path: "a".into(),
+                    modified: None,
+                },
+                DuplicateFile {
+                    path: "b".into(),
+                    modified: None,
+                },
             ],
         };
         let groups = [group];

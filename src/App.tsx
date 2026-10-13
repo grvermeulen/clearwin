@@ -2,13 +2,14 @@ import { useState } from "react";
 import Cleaner from "./pages/Cleaner";
 import ComingSoon from "./pages/ComingSoon";
 import Storage from "./pages/Storage";
+import Tools from "./pages/Tools";
 
 type Page = "cleaner" | "storage" | "tools" | "security";
 
 const NAV: { id: Page; label: string; soon?: string }[] = [
   { id: "cleaner", label: "Cleaner" },
   { id: "storage", label: "Storage" },
-  { id: "tools", label: "Tools", soon: "Startup programs, uninstaller and registry cleanup." },
+  { id: "tools", label: "Tools" },
   { id: "security", label: "Security", soon: "Microsoft Defender status and scans." },
 ];
 
@@ -39,6 +40,8 @@ export default function App() {
           <ComingSoon title={current.label} text={current.soon} />
         ) : page === "storage" ? (
           <Storage />
+        ) : page === "tools" ? (
+          <Tools />
         ) : (
           <Cleaner />
         )}

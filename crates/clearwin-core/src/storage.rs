@@ -65,7 +65,10 @@ pub struct FolderAnalysis {
 }
 
 pub fn unix_seconds(time: std::io::Result<SystemTime>) -> Option<u64> {
-    time.ok()?.duration_since(SystemTime::UNIX_EPOCH).ok().map(|d| d.as_secs())
+    time.ok()?
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_secs())
 }
 
 /// Keeps the N largest files seen across all threads.
@@ -79,22 +82,33 @@ impl TopFiles {
         let mut heap = self.heap.lock().unwrap();
         if heap.len() < self.limit {
             heap.push(Reverse(file));
-        } else if heap.peek().is_some_and(|Reverse(smallest)| file.size > smallest.size) {
+        } else if heap
+            .peek()
+            .is_some_and(|Reverse(smallest)| file.size > smallest.size)
+        {
             heap.pop();
             heap.push(Reverse(file));
         }
     }
 
     fn into_sorted(self) -> Vec<LargeFile> {
-        let mut files: Vec<LargeFile> =
-            self.heap.into_inner().unwrap().into_iter().map(|Reverse(f)| f).collect();
+        let mut files: Vec<LargeFile> = self
+            .heap
+            .into_inner()
+            .unwrap()
+            .into_iter()
+            .map(|Reverse(f)| f)
+            .collect();
         files.sort_by(|a, b| b.cmp(a));
         files
     }
 }
 
 fn analyze_dir(path: &Path, name: String, top: &TopFiles, progress: &Progress) -> DirNode {
-    let mut node = DirNode { name, ..DirNode::default() };
+    let mut node = DirNode {
+        name,
+        ..DirNode::default()
+    };
     if progress.is_cancelled() {
         node.incomplete = true;
         return node;
@@ -111,7 +125,9 @@ fn analyze_dir(path: &Path, name: String, top: &TopFiles, progress: &Progress) -
         };
         // Does not follow links: symlinks and junctions are neither counted nor entered,
         // so nothing is counted twice and the walk cannot loop.
-        let Ok(file_type) = entry.file_type() else { continue };
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
         if file_type.is_dir() {
             subdirs.push(entry);
         } else if file_type.is_file() {
@@ -129,7 +145,14 @@ fn analyze_dir(path: &Path, name: String, top: &TopFiles, progress: &Progress) -
     }
     node.children = subdirs
         .par_iter()
-        .map(|e| analyze_dir(&e.path(), e.file_name().to_string_lossy().into_owned(), top, progress))
+        .map(|e| {
+            analyze_dir(
+                &e.path(),
+                e.file_name().to_string_lossy().into_owned(),
+                top,
+                progress,
+            )
+        })
         .collect();
     node.children.sort_by_key(|c| Reverse(c.size));
     node.size = node.own_file_bytes + node.children.iter().map(|c| c.size).sum::<u64>();
@@ -140,10 +163,17 @@ fn analyze_dir(path: &Path, name: String, top: &TopFiles, progress: &Progress) -
 
 /// Measures every folder below `root` and collects the largest files.
 pub fn analyze_folder(root: &Path, progress: &Progress) -> FolderAnalysis {
-    let top = TopFiles { limit: LARGEST_FILES, heap: Mutex::new(BinaryHeap::new()) };
+    let top = TopFiles {
+        limit: LARGEST_FILES,
+        heap: Mutex::new(BinaryHeap::new()),
+    };
     let name = root.to_string_lossy().into_owned();
     let tree = analyze_dir(root, name, &top, progress);
-    FolderAnalysis { root: root.to_path_buf(), tree, largest: top.into_sorted() }
+    FolderAnalysis {
+        root: root.to_path_buf(),
+        tree,
+        largest: top.into_sorted(),
+    }
 }
 
 /// One entry in a folder view: a subfolder, or all files directly in the folder.
@@ -200,7 +230,12 @@ impl FolderAnalysis {
             });
         }
         entries.sort_by_key(|e| Reverse(e.size));
-        Some(Level { path, size: node.size, file_count: node.file_count, entries })
+        Some(Level {
+            path,
+            size: node.size,
+            file_count: node.file_count,
+            entries,
+        })
     }
 }
 
@@ -252,7 +287,12 @@ mod tests {
 
         assert_eq!(analysis.tree.size, 165);
         assert_eq!(analysis.tree.file_count, 4);
-        let names: Vec<_> = analysis.tree.children.iter().map(|c| c.name.as_str()).collect();
+        let names: Vec<_> = analysis
+            .tree
+            .children
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect();
         assert_eq!(names, vec!["big", "small"]);
         assert_eq!(analysis.tree.children[0].size, 150);
 
@@ -280,9 +320,16 @@ mod tests {
 
     #[test]
     fn top_files_keeps_only_the_largest() {
-        let top = TopFiles { limit: 2, heap: Mutex::new(BinaryHeap::new()) };
+        let top = TopFiles {
+            limit: 2,
+            heap: Mutex::new(BinaryHeap::new()),
+        };
         for size in [3, 9, 1, 7] {
-            top.offer(LargeFile { size, path: PathBuf::from(size.to_string()), modified: None });
+            top.offer(LargeFile {
+                size,
+                path: PathBuf::from(size.to_string()),
+                modified: None,
+            });
         }
         let sizes: Vec<u64> = top.into_sorted().iter().map(|f| f.size).collect();
         assert_eq!(sizes, vec![9, 7]);
@@ -296,7 +343,10 @@ mod tests {
         write(&other.path().join("huge.bin"), 1000);
         std::os::unix::fs::symlink(other.path(), dir.path().join("link")).unwrap();
 
-        assert_eq!(analyze_folder(dir.path(), &Progress::default()).tree.size, 0);
+        assert_eq!(
+            analyze_folder(dir.path(), &Progress::default()).tree.size,
+            0
+        );
     }
 
     #[test]

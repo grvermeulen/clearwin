@@ -67,7 +67,9 @@ pub fn list_drives() -> Vec<Drive> {
 
 #[tauri::command]
 pub fn home_folder() -> Option<PathBuf> {
-    std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from)
+    std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(PathBuf::from)
 }
 
 #[tauri::command]
@@ -91,10 +93,15 @@ pub async fn analyze_storage(
 }
 
 #[tauri::command]
-pub fn storage_level(state: State<'_, StorageState>, segments: Vec<String>) -> Result<Level, String> {
+pub fn storage_level(
+    state: State<'_, StorageState>,
+    segments: Vec<String>,
+) -> Result<Level, String> {
     let analysis = state.analysis.lock().unwrap();
     let analysis = analysis.as_ref().ok_or("Analyze a folder first.")?;
-    analysis.level(&segments).ok_or_else(|| "That folder is no longer in the results.".into())
+    analysis
+        .level(&segments)
+        .ok_or_else(|| "That folder is no longer in the results.".into())
 }
 
 #[tauri::command]
@@ -112,7 +119,10 @@ pub async fn find_duplicates(
     roots: Vec<PathBuf>,
     min_size: u64,
 ) -> Result<Vec<DuplicateGroup>, String> {
-    let groups = run_job(app, &state, move |p| duplicates::find_duplicates(&roots, min_size, p)).await?;
+    let groups = run_job(app, &state, move |p| {
+        duplicates::find_duplicates(&roots, min_size, p)
+    })
+    .await?;
     *state.duplicates.lock().unwrap() = groups.clone();
     Ok(groups)
 }
@@ -141,7 +151,10 @@ pub fn recycle_large_files(
 ) -> Result<RecycleReport, String> {
     let mut analysis = state.analysis.lock().unwrap();
     let analysis = analysis.as_mut().ok_or("Analyze a folder first.")?;
-    if let Some(p) = paths.iter().find(|p| !analysis.largest.iter().any(|f| &f.path == *p)) {
+    if let Some(p) = paths
+        .iter()
+        .find(|p| !analysis.largest.iter().any(|f| &f.path == *p))
+    {
         return Err(format!("{} is not in the largest-files list.", p.display()));
     }
     let report = files::move_to_recycle_bin(&paths);
