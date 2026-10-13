@@ -93,7 +93,10 @@ function SpaceMap({ onAnalyzed }: { onAnalyzed: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    storageApi.listDrives().then(setDrives).catch((e) => setError(String(e)));
+    storageApi
+      .listDrives()
+      .then(setDrives)
+      .catch((e) => setError(String(e)));
   }, []);
 
   async function analyze(path: string) {
@@ -127,7 +130,12 @@ function SpaceMap({ onAnalyzed }: { onAnalyzed: () => void }) {
         {drives.map((d) => {
           const used = d.totalBytes - d.freeBytes;
           return (
-            <button key={d.mountPoint} className="drive" disabled={busy} onClick={() => analyze(d.mountPoint)}>
+            <button
+              key={d.mountPoint}
+              className="drive"
+              disabled={busy}
+              onClick={() => analyze(d.mountPoint)}
+            >
               <strong>{d.mountPoint}</strong> <span className="muted">{d.name}</span>
               <div className="meter">
                 <div style={{ width: `${(used / d.totalBytes) * 100}%` }} />
@@ -203,7 +211,11 @@ function Treemap({ level, onOpen }: { level: Level; onOpen: (name: string) => vo
   }, []);
 
   const rects = useMemo(
-    () => squarify(level.entries.map((e) => e.size), { x: 0, y: 0, w: size.w, h: size.h }),
+    () =>
+      squarify(
+        level.entries.map((e) => e.size),
+        { x: 0, y: 0, w: size.w, h: size.h },
+      ),
     [level, size],
   );
 
@@ -245,7 +257,10 @@ function Treemap({ level, onOpen }: { level: Level; onOpen: (name: string) => vo
             className={e.isDir && e.hasChildren ? "clickable" : ""}
             onClick={() => e.isDir && e.hasChildren && onOpen(e.name)}
           >
-            <span className="swatch" style={{ background: e.isDir ? TILE_COLORS[i % TILE_COLORS.length] : "var(--border)" }} />
+            <span
+              className="swatch"
+              style={{ background: e.isDir ? TILE_COLORS[i % TILE_COLORS.length] : "var(--border)" }}
+            />
             <span className="name">
               {e.name}
               {e.incomplete && <span className="tag">Partly unreadable</span>}
@@ -309,7 +324,9 @@ function LargeFiles({ analyzedAt, goToMap }: { analyzedAt: number; goToMap: () =
       const report = await storageApi.recycleLargeFiles([...selected]);
       setMessage(
         `Moved ${plural(report.moved.length, "file", "files")} to the Recycle Bin.` +
-          (report.failures.length ? ` ${plural(report.failures.length, "file", "files")} could not be moved.` : ""),
+          (report.failures.length
+            ? ` ${plural(report.failures.length, "file", "files")} could not be moved.`
+            : ""),
       );
       setFiles(await storageApi.largestFiles());
       setSelected(new Set());
@@ -455,7 +472,9 @@ function Duplicates() {
       setSelected(new Set());
       setMessage(
         `Moved ${plural(report.moved.length, "file", "files")} to the Recycle Bin.` +
-          (report.failures.length ? ` ${plural(report.failures.length, "file", "files")} could not be moved.` : ""),
+          (report.failures.length
+            ? ` ${plural(report.failures.length, "file", "files")} could not be moved.`
+            : ""),
       );
     } catch (e) {
       setMessage(String(e));
@@ -522,8 +541,8 @@ function Duplicates() {
           <>
             <div className="toolbar">
               <span>
-                {plural(groups.length, "set", "sets")} of duplicates, <strong>{formatBytes(wasted)}</strong> could be
-                freed.
+                {plural(groups.length, "set", "sets")} of duplicates, <strong>{formatBytes(wasted)}</strong>{" "}
+                could be freed.
               </span>
               <button className="link" onClick={selectAllButOldest}>
                 Select all but the oldest copy
@@ -539,7 +558,11 @@ function Duplicates() {
                 </div>
                 {g.files.map((f) => (
                   <label key={f.path} className="dup-file">
-                    <input type="checkbox" checked={selected.has(f.path)} onChange={() => toggle(g, f.path)} />
+                    <input
+                      type="checkbox"
+                      checked={selected.has(f.path)}
+                      onChange={() => toggle(g, f.path)}
+                    />
                     <span className="path" title={f.path}>
                       {f.path}
                     </span>

@@ -4,12 +4,21 @@
 mod cleaner;
 mod elevation;
 mod security;
+mod settings;
 mod storage;
 mod tools;
 
 fn main() {
+    // Started by the scheduled task: clean in the background, show nothing.
+    if std::env::args().any(|a| a == clearwin_core::schedule::AUTO_CLEAN_FLAG) {
+        clearwin_core::schedule::run_auto_clean(&clearwin_core::settings::config_dir());
+        return;
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(cleaner::CleanerState::default())
         .manage(storage::StorageState::default())
         .manage(tools::ToolsState::default())
@@ -42,6 +51,11 @@ fn main() {
             security::defender_scan,
             security::defender_update,
             security::open_windows_security,
+            settings::get_settings,
+            settings::set_cleaner_selection,
+            settings::set_exclusions,
+            settings::set_schedule,
+            settings::get_history,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start ClearWin");

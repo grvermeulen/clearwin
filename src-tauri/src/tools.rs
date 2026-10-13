@@ -66,7 +66,9 @@ pub async fn fix_registry(
         chosen
     };
     let root = backup_root(&app)?;
-    blocking(move || registry::fix(&chosen, &root)).await
+    let report = blocking(move || registry::fix(&chosen, &root)).await?;
+    crate::settings::record("Registry entries fixed", report.fixed as u64, 0, None);
+    Ok(report)
 }
 
 #[tauri::command]

@@ -72,7 +72,11 @@ function Startup() {
   const [items, setItems] = useState<StartupItem[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const load = () => toolsApi.listStartup().then(setItems).catch((e) => setMessage(String(e)));
+  const load = () =>
+    toolsApi
+      .listStartup()
+      .then(setItems)
+      .catch((e) => setMessage(String(e)));
   useEffect(() => {
     load();
   }, []);
@@ -91,8 +95,8 @@ function Startup() {
     <>
       <div className="toolbar">
         <span className="muted">
-          Turning a program off stops it starting with Windows. It stays installed and you can turn it back on any
-          time.
+          Turning a program off stops it starting with Windows. It stays installed and you can turn it back on
+          any time.
         </span>
         <button className="secondary" onClick={load}>
           Refresh
@@ -147,7 +151,11 @@ function Uninstall() {
   const [confirming, setConfirming] = useState<InstalledApp | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const load = () => toolsApi.listApps().then(setApps).catch((e) => setMessage(String(e)));
+  const load = () =>
+    toolsApi
+      .listApps()
+      .then(setApps)
+      .catch((e) => setMessage(String(e)));
   useEffect(() => {
     load();
   }, []);
@@ -242,7 +250,11 @@ function Registry() {
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
-  const loadBackups = () => toolsApi.listBackups().then(setBackups).catch(() => setBackups([]));
+  const loadBackups = () =>
+    toolsApi
+      .listBackups()
+      .then(setBackups)
+      .catch(() => setBackups([]));
   useEffect(() => {
     loadBackups();
   }, []);
@@ -268,7 +280,9 @@ function Registry() {
       const report = await toolsApi.fixRegistry([...selected]);
       setMessage(
         `Fixed ${plural(report.fixed, "issue", "issues")}. A backup was saved first, so you can undo this below.` +
-          (report.failures.length ? ` ${plural(report.failures.length, "issue", "issues")} could not be fixed: ${report.failures.join("; ")}` : ""),
+          (report.failures.length
+            ? ` ${plural(report.failures.length, "issue", "issues")} could not be fixed: ${report.failures.join("; ")}`
+            : ""),
       );
       setIssues((all) => (all ?? []).filter((i) => !selected.has(i.id)));
       setSelected(new Set());
@@ -300,13 +314,17 @@ function Registry() {
     <>
       <div className="toolbar">
         <span className="muted">
-          Finds registry entries that point at programs or files that no longer exist. A backup is saved before
-          anything changes.
+          Finds registry entries that point at programs or files that no longer exist. A backup is saved
+          before anything changes.
         </span>
         <button className="secondary" disabled={busy} onClick={scan}>
           Scan for issues
         </button>
-        <button className="primary" disabled={busy || selected.size === 0} onClick={() => setConfirming(true)}>
+        <button
+          className="primary"
+          disabled={busy || selected.size === 0}
+          onClick={() => setConfirming(true)}
+        >
           Fix {selected.size || ""} selected
         </button>
       </div>
@@ -386,10 +404,15 @@ function Registry() {
         )}
       </section>
       {confirming && (
-        <Confirm title="Fix registry issues?" action="Fix" onCancel={() => setConfirming(false)} onConfirm={fix}>
+        <Confirm
+          title="Fix registry issues?"
+          action="Fix"
+          onCancel={() => setConfirming(false)}
+          onConfirm={fix}
+        >
           <p>
-            {plural(selected.size, "entry", "entries")} will be removed. ClearWin saves a backup first, which you can
-            restore from this page.
+            {plural(selected.size, "entry", "entries")} will be removed. ClearWin saves a backup first, which
+            you can restore from this page.
           </p>
         </Confirm>
       )}
@@ -401,7 +424,8 @@ function Registry() {
           onConfirm={() => restore(restoring)}
         >
           <p>
-            The registry entries saved on {formatDate(restoring.created)} will be put back as they were before fixing.
+            The registry entries saved on {formatDate(restoring.created)} will be put back as they were before
+            fixing.
           </p>
         </Confirm>
       )}

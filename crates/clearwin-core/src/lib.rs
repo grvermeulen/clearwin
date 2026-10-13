@@ -15,13 +15,16 @@ mod paths;
 mod processes;
 mod recycle_bin;
 pub mod registry;
+pub mod schedule;
+pub mod settings;
 pub mod startup;
 pub mod storage;
 pub mod uninstall;
 
 pub use catalog::{catalog, Action, Category, NameFilter, Target};
 pub use engine::{
-    clean_category, scan_category, CategoryClean, CategoryScan, CategorySummary, FileEntry,
+    clean_category, is_excluded, scan_category, scan_category_excluding, CategoryClean,
+    CategoryScan, CategorySummary, FileEntry,
 };
 pub use paths::Paths;
 pub use processes::RunningApps;

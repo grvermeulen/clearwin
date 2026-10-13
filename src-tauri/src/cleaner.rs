@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 use clearwin_core::{
-    catalog, clean_category, scan_category, Category, CategoryClean, CategoryScan, CategorySummary,
-    Paths, RunningApps,
+    catalog, clean_category, scan_category_excluding, Category, CategoryClean, CategoryScan,
+    CategorySummary, Paths, RunningApps,
 };
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
@@ -50,6 +50,7 @@ pub async fn scan(
 ) -> Result<Vec<CategorySummary>, String> {
     let chosen = selected(&state.categories.lock().unwrap(), &ids);
     let scans = state.scans.clone();
+    let excluded = crate::settings::current().exclusions;
     tauri::async_runtime::spawn_blocking(move || {
         let running = RunningApps::snapshot();
         let now = SystemTime::now();
@@ -64,7 +65,7 @@ pub async fn scan(
                     total: chosen.len(),
                 },
             );
-            let scan = scan_category(category, &running, now);
+            let scan = scan_category_excluding(category, &running, now, &excluded);
             summaries.push(scan.summary(PREVIEW_FILES));
             fresh.insert(category.id.clone(), scan);
         }
@@ -87,14 +88,21 @@ pub async fn clean(
         let mut scans = scans.lock().unwrap();
         let running = RunningApps::snapshot();
         let now = SystemTime::now();
-        chosen
+        let results: Vec<CategoryClean> = chosen
             .iter()
             .filter_map(|category| {
                 // Only categories the user has seen a preview for are cleaned.
                 let scan = scans.remove(&category.id)?;
                 Some(clean_category(category, &scan, &running, now))
             })
-            .collect()
+            .collect();
+        crate::settings::record(
+            "Cleaned",
+            results.iter().map(|r| r.removed_items).sum(),
+            results.iter().map(|r| r.freed_bytes).sum(),
+            None,
+        );
+        results
     })
     .await
     .map_err(|e| e.to_string())

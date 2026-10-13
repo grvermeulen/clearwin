@@ -136,6 +136,12 @@ pub fn recycle_duplicates(
     let mut groups = state.duplicates.lock().unwrap();
     duplicates::check_keeps_a_copy(&groups, &paths)?;
     let report = files::move_to_recycle_bin(&paths);
+    crate::settings::record(
+        "Duplicates moved to Recycle Bin",
+        report.moved.len() as u64,
+        0,
+        None,
+    );
     for group in groups.iter_mut() {
         group.files.retain(|f| !report.moved.contains(&f.path));
     }
@@ -158,6 +164,12 @@ pub fn recycle_large_files(
         return Err(format!("{} is not in the largest-files list.", p.display()));
     }
     let report = files::move_to_recycle_bin(&paths);
+    crate::settings::record(
+        "Large files moved to Recycle Bin",
+        report.moved.len() as u64,
+        0,
+        None,
+    );
     analysis.largest.retain(|f| !report.moved.contains(&f.path));
     Ok(report)
 }

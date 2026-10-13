@@ -194,3 +194,30 @@ export const securityApi = {
   update: () => invoke<void>("defender_update"),
   openWindowsSecurity: () => invoke<void>("open_windows_security"),
 };
+
+export interface Schedule {
+  frequency: "daily" | "weekly";
+  time: string;
+}
+
+export interface Settings {
+  cleanerSelection: string[] | null;
+  exclusions: string[];
+  schedule: Schedule | null;
+}
+
+export interface HistoryEntry {
+  time: number;
+  action: string;
+  items: number;
+  bytes: number;
+  details: string | null;
+}
+
+export const settingsApi = {
+  get: () => invoke<Settings>("get_settings"),
+  setCleanerSelection: (ids: string[]) => invoke<Settings>("set_cleaner_selection", { ids }),
+  setExclusions: (paths: string[]) => invoke<Settings>("set_exclusions", { paths }),
+  setSchedule: (schedule: Schedule | null) => invoke<Settings>("set_schedule", { schedule }),
+  history: () => invoke<HistoryEntry[]>("get_history"),
+};

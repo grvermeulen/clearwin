@@ -17,7 +17,8 @@ function when(unixSeconds: number | null): string {
 function problems(s: DefenderStatus): string[] {
   const out: string[] = [];
   if (!s.antivirusEnabled) out.push("Microsoft Defender antivirus is turned off.");
-  else if (!s.realTimeProtection) out.push("Real-time protection is off, so new files are not checked as they arrive.");
+  else if (!s.realTimeProtection)
+    out.push("Real-time protection is off, so new files are not checked as they arrive.");
   if (s.signatureAgeDays > 3) out.push(`Virus definitions are ${s.signatureAgeDays} days old.`);
   return out;
 }
@@ -98,11 +99,7 @@ export default function Security() {
           </button>
         </div>
       </header>
-      {error && (
-        <div className="banner error">
-          Could not reach Microsoft Defender: {error}
-        </div>
-      )}
+      {error && <div className="banner error">Could not reach Microsoft Defender: {error}</div>}
       {message && <div className="banner">{message}</div>}
 
       {status && (
@@ -117,8 +114,8 @@ export default function Security() {
             </div>
             {passive ? (
               <p>
-                Microsoft Defender is in {status.runningMode.toLowerCase()} because another antivirus is active. You
-                can still run Defender scans below.
+                Microsoft Defender is in {status.runningMode.toLowerCase()} because another antivirus is
+                active. You can still run Defender scans below.
               </p>
             ) : issues.length === 0 ? (
               <p>Microsoft Defender is scanning files continuously and its virus definitions are current.</p>
@@ -137,8 +134,16 @@ export default function Security() {
           </section>
 
           <div className="facts">
-            <Fact label="Real-time protection" value={status.realTimeProtection ? "On" : "Off"} good={status.realTimeProtection} />
-            <Fact label="Tamper protection" value={status.tamperProtection ? "On" : "Off"} good={status.tamperProtection} />
+            <Fact
+              label="Real-time protection"
+              value={status.realTimeProtection ? "On" : "Off"}
+              good={status.realTimeProtection}
+            />
+            <Fact
+              label="Tamper protection"
+              value={status.tamperProtection ? "On" : "Off"}
+              good={status.tamperProtection}
+            />
             <Fact
               label="Virus definitions"
               value={`Updated ${formatDate(status.signatureUpdated)}`}
@@ -162,7 +167,12 @@ export default function Security() {
                   : "Run a scan any time. Defender also checks new files on its own."}
               </span>
               {(["quick", "full", "custom"] as ScanKind[]).map((kind) => (
-                <button key={kind} className={kind === "quick" ? "primary" : "secondary"} disabled={!!scanning} onClick={() => scan(kind)}>
+                <button
+                  key={kind}
+                  className={kind === "quick" ? "primary" : "secondary"}
+                  disabled={!!scanning}
+                  onClick={() => scan(kind)}
+                >
                   {kind === "custom" ? "Scan a folder..." : SCAN_LABELS[kind]}
                 </button>
               ))}

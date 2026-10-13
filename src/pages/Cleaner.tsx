@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, type Category, type CategoryClean, type CategorySummary } from "../api";
+import { api, settingsApi, type Category, type CategoryClean, type CategorySummary } from "../api";
 import { formatBytes, formatCount, plural } from "../format";
-
-const SELECTION_KEY = "clearwin.cleaner.selection";
 
 type Phase =
   | { kind: "idle" }
@@ -12,25 +10,9 @@ type Phase =
   | { kind: "cleaning"; results: CategorySummary[] }
   | { kind: "cleaned"; report: CategoryClean[] };
 
-function loadSelection(categories: Category[]): Set<string> {
-  try {
-    const saved = localStorage.getItem(SELECTION_KEY);
-    if (saved) {
-      const ids = new Set<string>(JSON.parse(saved));
-      return new Set(categories.filter((c) => ids.has(c.id)).map((c) => c.id));
-    }
-  } catch {
-    // Fall back to the defaults below.
-  }
+function initialSelection(categories: Category[], saved: string[] | null): Set<string> {
+  if (saved) return new Set(categories.filter((c) => saved.includes(c.id)).map((c) => c.id));
   return new Set(categories.filter((c) => c.defaultSelected).map((c) => c.id));
-}
-
-function saveSelection(selection: Set<string>) {
-  try {
-    localStorage.setItem(SELECTION_KEY, JSON.stringify([...selection]));
-  } catch {
-    // Remembering the selection is a convenience only.
-  }
 }
 
 /** Results that can actually be cleaned now: something found and nothing blocking. */
@@ -46,14 +28,16 @@ export default function Cleaner() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api
-      .listCategories()
-      .then((cats) => {
+    Promise.all([api.listCategories(), settingsApi.get()])
+      .then(([cats, settings]) => {
         setCategories(cats);
-        setSelection(loadSelection(cats));
+        setSelection(initialSelection(cats, settings.cleanerSelection));
       })
       .catch((e) => setError(String(e)));
-    api.isAdmin().then(setIsAdmin).catch(() => setIsAdmin(true));
+    api
+      .isAdmin()
+      .then(setIsAdmin)
+      .catch(() => setIsAdmin(true));
   }, []);
 
   const byId = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
@@ -67,7 +51,8 @@ export default function Cleaner() {
 
   function updateSelection(next: Set<string>) {
     setSelection(next);
-    saveSelection(next);
+    // Saved in settings so the scheduled clean uses the same choice.
+    settingsApi.setCleanerSelection([...next]).catch((e) => setError(String(e)));
     // A changed selection makes the old preview stale, so it must be analyzed again.
     if (phase.kind !== "idle") setPhase({ kind: "idle" });
   }
@@ -136,7 +121,9 @@ export default function Cleaner() {
           <button
             className="primary"
             disabled={phase.kind !== "scanned" || cleanable(phase.results).length === 0}
-            onClick={() => phase.kind === "scanned" && setPhase({ kind: "confirming", results: phase.results })}
+            onClick={() =>
+              phase.kind === "scanned" && setPhase({ kind: "confirming", results: phase.results })
+            }
           >
             Clean
           </button>
@@ -146,8 +133,7 @@ export default function Cleaner() {
       {!isAdmin && (
         <div className="banner">
           <span>
-            ClearWin is running without administrator rights, so some Windows folders will be
-            skipped.
+            ClearWin is running without administrator rights, so some Windows folders will be skipped.
           </span>
           <button className="link" onClick={restartAsAdmin}>
             Restart as administrator
@@ -233,27 +219,21 @@ export default function Cleaner() {
 }
 
 function totals(results: CategorySummary[]) {
-  return results.reduce(
-    (acc, r) => ({ bytes: acc.bytes + r.totalBytes, items: acc.items + r.itemCount }),
-    { bytes: 0, items: 0 },
-  );
+  return results.reduce((acc, r) => ({ bytes: acc.bytes + r.totalBytes, items: acc.items + r.itemCount }), {
+    bytes: 0,
+    items: 0,
+  });
 }
 
-function ScanResults({
-  results,
-  byId,
-}: {
-  results: CategorySummary[];
-  byId: Map<string, Category>;
-}) {
+function ScanResults({ results, byId }: { results: CategorySummary[]; byId: Map<string, Category> }) {
   const [open, setOpen] = useState<string | null>(null);
   const total = totals(cleanable(results));
 
   return (
     <>
       <div className="summary">
-        <strong>{formatBytes(total.bytes)}</strong> can be freed from{" "}
-        {plural(total.items, "item", "items")}. Click a row to see the largest files.
+        <strong>{formatBytes(total.bytes)}</strong> can be freed from {plural(total.items, "item", "items")}.
+        Click a row to see the largest files.
       </div>
       <table>
         <thead>
@@ -323,8 +303,8 @@ function ConfirmDialog({
       <div className="dialog">
         <h2>Delete these items?</h2>
         <p>
-          {plural(total.items, "item", "items")} ({formatBytes(total.bytes)}) will be permanently
-          deleted. This can't be undone.
+          {plural(total.items, "item", "items")} ({formatBytes(total.bytes)}) will be permanently deleted.
+          This can't be undone.
         </p>
         <div className="actions">
           <button className="secondary" onClick={onCancel}>

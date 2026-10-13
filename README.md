@@ -7,17 +7,18 @@ A personal Windows cleaner in the spirit of CCleaner, built with [Tauri](https:/
 
 Download the latest installer from the
 [Latest build](https://github.com/grvermeulen/clearwin/releases/tag/latest) release and run it.
-The installer is not code-signed, so Windows SmartScreen may warn you: choose
-**More info → Run anyway**.
+The installer is not code-signed, so Windows SmartScreen warns you the first time: choose
+**More info → Run anyway**. After that ClearWin updates itself without the warning.
 
 ## What it does
 
-| Area     | Features                                                                 | Status  |
-| -------- | ------------------------------------------------------------------------ | ------- |
-| Cleaner  | Temp files, Recycle Bin, thumbnail and shader caches, crash dumps, Windows Update downloads, browser cache / history / cookies (Chrome, Edge, Brave, Firefox) | Done |
-| Storage  | Big-folder map, large-file finder, duplicate finder                      | Planned |
-| Tools    | Startup programs, uninstaller, registry cleanup with backups             | Planned |
-| Security | Microsoft Defender status and scans                                      | Planned |
+| Area     | Features                                                                                         |
+| -------- | ------------------------------------------------------------------------------------------------ |
+| Cleaner  | Temp files, Recycle Bin, thumbnail and shader caches, crash dumps, Windows Update downloads, browser cache / history / cookies (Chrome, Edge, Brave, Firefox) |
+| Storage  | Space map of any drive or folder, the 500 largest files, duplicate finder (compares contents)    |
+| Tools    | Startup programs on/off, uninstaller, registry cleanup with automatic backups and restore         |
+| Security | Microsoft Defender status, quick / full / folder scans, definition updates, threat history       |
+| Settings | Scheduled automatic cleaning, folders and files to never clean, activity history, auto-update     |
 
 ### Safety rules
 
@@ -27,6 +28,19 @@ The installer is not code-signed, so Windows SmartScreen may warn you: choose
 - **Recent temp files are kept.** Temp files changed in the last 24 hours are left alone.
 - **Open browsers are skipped.** A browser's data is only cleaned while that browser is closed.
 - **Bookmarks are kept.** Firefox history is removed row by row from its database, so bookmarks stay.
+- **Storage deletions are recoverable.** Large files and duplicates go to the Recycle Bin, and the last
+  copy of a duplicate can't be removed.
+- **Registry changes are backed up.** Every affected key is exported to a `.reg` file first, and
+  backups can be restored from the Registry tab. Only entries pointing at files that are gone are flagged.
+- **Startup changes are reversible.** Programs are switched off the same way Task Manager does it.
+
+## Updates
+
+Installed copies check the `latest` release for a newer version when they start and update
+themselves, so the SmartScreen warning only appears on the very first install. Update packages are
+signed with a separate updater key: add the private key as the repository secret
+`TAURI_SIGNING_PRIVATE_KEY` (Settings → Secrets and variables → Actions). Without it the installer
+still builds, but no update is published.
 
 ## Development
 

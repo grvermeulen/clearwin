@@ -100,6 +100,28 @@ fn walk(target: &Target) -> WalkDir {
 
 /// Lists what cleaning `category` would remove. Deletes nothing.
 pub fn scan_category(category: &Category, running: &RunningApps, now: SystemTime) -> CategoryScan {
+    scan_category_excluding(category, running, now, &[])
+}
+
+/// True when `path` is one of `excluded` or inside one of them (ignoring case, as Windows does).
+pub fn is_excluded(path: &Path, excluded: &[PathBuf]) -> bool {
+    let path = path.to_string_lossy().to_lowercase();
+    excluded.iter().any(|ex| {
+        let ex = ex.to_string_lossy().to_lowercase();
+        let ex = ex.trim_end_matches(['\\', '/']);
+        !ex.is_empty()
+            && path.starts_with(ex)
+            && matches!(path[ex.len()..].chars().next(), None | Some('\\' | '/'))
+    })
+}
+
+/// Like [`scan_category`], but leaves out anything inside the `excluded` folders or files.
+pub fn scan_category_excluding(
+    category: &Category,
+    running: &RunningApps,
+    now: SystemTime,
+    excluded: &[PathBuf],
+) -> CategoryScan {
     let mut scan = CategoryScan {
         id: category.id.clone(),
         blocked_reason: blocked_reason(category, running),
@@ -108,7 +130,10 @@ pub fn scan_category(category: &Category, running: &RunningApps, now: SystemTime
     match &category.action {
         Action::Files(targets) => {
             for target in targets {
-                for entry in walk(target).into_iter().flatten() {
+                let entries = walk(target)
+                    .into_iter()
+                    .filter_entry(|e| !is_excluded(e.path(), excluded));
+                for entry in entries.flatten() {
                     // Symlinks and junctions are never followed or removed.
                     if !entry.file_type().is_file() {
                         continue;
@@ -434,6 +459,29 @@ mod tests {
 
         clean_category(&cat, &scan, &RunningApps::default(), now);
         assert!(elsewhere.path().join("precious.txt").exists());
+    }
+
+    #[test]
+    fn excluded_folders_are_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir.path().join("keep/a.tmp"), 10);
+        write(&dir.path().join("keeper.tmp"), 10);
+        write(&dir.path().join("b.tmp"), 10);
+        let cat = category(vec![tree(dir.path())]);
+
+        let scan = scan_category_excluding(
+            &cat,
+            &RunningApps::default(),
+            SystemTime::now(),
+            &[dir.path().join("KEEP"), dir.path().join("keeper.tmp")],
+        );
+
+        let names: Vec<_> = scan
+            .files
+            .iter()
+            .map(|f| f.path.file_name().unwrap().to_owned())
+            .collect();
+        assert_eq!(names, vec![std::ffi::OsString::from("b.tmp")]);
     }
 
     #[test]
