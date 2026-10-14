@@ -97,6 +97,58 @@ pub fn upgrade_args(id: Option<&str>) -> Vec<String> {
     args
 }
 
+/// winget's own error codes that people run into, in words.
+fn known_error(code: u32) -> Option<&'static str> {
+    Some(match code {
+        0x8A15_0011 => "The download did not match the expected file, so it was not installed",
+        0x8A15_002B => "No update is available for how this program was installed",
+        0x8A15_0101 => "The program is open. Close it and try again",
+        0x8A15_0102 => "Another installation is already running. Try again when it has finished",
+        0x8A15_0103 => "A file the update needs is in use. Close the program and try again",
+        0x8A15_0104 => "Something this update needs is missing",
+        0x8A15_0105 => "The disk is full",
+        0x8A15_0106 => "Not enough memory",
+        0x8A15_0107 => "No internet connection",
+        0x8A15_0109 => "Installed, but Windows needs a restart to finish",
+        0x8A15_010A => "Windows needs a restart before this can be installed",
+        0x8A15_010C => "The installation was cancelled",
+        0x8A15_010D => "Another version of this program is already installed",
+        0x8A15_010F => "Blocked by a policy on this PC",
+        _ => return None,
+    })
+}
+
+/// Why an update failed: winget's code in words when it is a known one, otherwise
+/// the last real message winget printed (not its progress bars or banners).
+pub fn failure_reason(exit_code: Option<i32>, stdout: &str) -> String {
+    let code = exit_code.map(|c| c as u32);
+    if let Some(text) = code.and_then(known_error) {
+        return format!("{text}.");
+    }
+    let noise = |l: &str| {
+        l.chars().count() <= 3
+            || l.contains('█')
+            || l.contains('▒')
+            || l.starts_with("Found ")
+            || l.starts_with("Downloading ")
+            || l.starts_with("This application is licensed")
+            || l.starts_with("Microsoft is not responsible")
+            || l.starts_with("Successfully verified")
+            || l.starts_with("Starting package install")
+    };
+    let message = stdout
+        .lines()
+        .map(|l| l.rsplit('\r').next().unwrap_or(l).trim())
+        .rfind(|l| !l.is_empty() && !noise(l))
+        .unwrap_or("winget could not update this program");
+    match code {
+        Some(c) if c != 0 && !message.contains(&format!("{c:#x}")) => {
+            format!("{message} (code {c:#X})")
+        }
+        _ => message.to_string(),
+    }
+}
+
 #[cfg(windows)]
 fn winget(args: &[String]) -> Result<std::process::Output, String> {
     crate::ps::hidden("winget.exe")
@@ -132,13 +184,10 @@ pub fn upgrade(id: Option<&str>) -> Result<(), String> {
     if output.status.success() {
         return Ok(());
     }
-    let text = String::from_utf8_lossy(&output.stdout);
-    let last = text
-        .lines()
-        .map(|l| l.rsplit('\r').next().unwrap_or(l).trim())
-        .rfind(|l| !l.is_empty())
-        .unwrap_or("winget could not update this program.");
-    Err(last.to_string())
+    Err(failure_reason(
+        output.status.code(),
+        &String::from_utf8_lossy(&output.stdout),
+    ))
 }
 
 #[cfg(not(windows))]
@@ -197,6 +246,27 @@ Notepad++ (é) Notepad++.Npp  8.5    8.6         winget
     fn nothing_to_update() {
         assert!(
             parse_upgrade_table("No installed package found matching input criteria.").is_empty()
+        );
+    }
+
+    #[test]
+    fn explains_failures() {
+        // 0x8A150101 as winget's signed exit code.
+        assert_eq!(
+            failure_reason(Some(0x8A15_0101_u32 as i32), ""),
+            "The program is open. Close it and try again."
+        );
+        let out = "Found Git [Git.Git] Version 2.55.0\r\nThis application is licensed to you by its owner.\r\n\
+                   Downloading https://example.com/git.exe\r\n  ██████████  60 MB / 60 MB\r\n\
+                   Successfully verified installer hash\r\nStarting package install...\r\n\
+                   Installer failed with exit code: 1603\r\n";
+        assert_eq!(
+            failure_reason(Some(-1978335226), out),
+            "Installer failed with exit code: 1603 (code 0x8A150006)"
+        );
+        assert_eq!(
+            failure_reason(None, ""),
+            "winget could not update this program"
         );
     }
 
