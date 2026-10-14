@@ -41,6 +41,12 @@ pub async fn list_apps() -> Result<Vec<InstalledApp>, String> {
     blocking(uninstall::list).await
 }
 
+/// Folder sizes and last use; slower than the list itself, so it is asked for separately.
+#[tauri::command]
+pub async fn app_details() -> Result<Vec<clearwin_core::app_usage::AppDetails>, String> {
+    blocking(|| clearwin_core::app_usage::details(&uninstall::list())).await
+}
+
 #[tauri::command]
 pub fn uninstall_app(id: String) -> Result<(), String> {
     uninstall::uninstall(&id)

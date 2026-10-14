@@ -812,3 +812,10 @@ span.warn {
 .health-list li.state-unknown .dot {
   background: var(--muted);
 }
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+th.sortable:hover {
+  color: var(--text);
+}
