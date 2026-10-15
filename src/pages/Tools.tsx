@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { toolsApi, type BackupInfo, type InstalledApp, type RegistryIssue, type StartupItem } from "../api";
+import {
+  toolsApi,
+  type AppDetails,
+  type BackupInfo,
+  type InstalledApp,
+  type RegistryIssue,
+  type StartupItem,
+} from "../api";
 import { formatBytes, formatDate, plural } from "../format";
 
 type Tab = "startup" | "uninstall" | "registry";
@@ -145,27 +152,89 @@ function Startup() {
   );
 }
 
+type SortKey = "name" | "size" | "installed" | "lastUsed";
+
+/** Shown for a column that sorts; clicking again flips the direction. */
+function SortHeader({
+  label,
+  column,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  column: SortKey;
+  sort: { key: SortKey; desc: boolean };
+  onSort: (key: SortKey) => void;
+  className?: string;
+}) {
+  const active = sort.key === column;
+  return (
+    <th className={`sortable ${className ?? ""}`} onClick={() => onSort(column)}>
+      {label}
+      <span className="sort-mark">{active ? (sort.desc ? " ▼" : " ▲") : ""}</span>
+    </th>
+  );
+}
+
 function Uninstall() {
   const [apps, setApps] = useState<InstalledApp[] | null>(null);
+  const [details, setDetails] = useState<Map<string, AppDetails> | null>(null);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "name", desc: false });
   const [confirming, setConfirming] = useState<InstalledApp | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const load = () =>
+  const load = () => {
+    setDetails(null);
     toolsApi
       .listApps()
       .then(setApps)
       .catch((e) => setMessage(String(e)));
+    // Folder sizes and last use take longer, so they fill in afterwards.
+    toolsApi
+      .appDetails()
+      .then((list) => setDetails(new Map(list.map((d) => [d.id, d]))))
+      .catch(() => setDetails(new Map()));
+  };
   useEffect(() => {
     load();
   }, []);
 
+  const sizeOf = (a: InstalledApp) => a.sizeBytes ?? details?.get(a.id)?.measuredBytes ?? null;
+  const lastUsedOf = (a: InstalledApp) => details?.get(a.id)?.lastUsed ?? null;
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (apps ?? []).filter(
+    const list = (apps ?? []).filter(
       (a) => !q || a.name.toLowerCase().includes(q) || a.publisher?.toLowerCase().includes(q),
     );
-  }, [apps, query]);
+    const value = (a: InstalledApp): string | number | null => {
+      switch (sort.key) {
+        case "name":
+          return a.name.toLowerCase();
+        case "size":
+          return sizeOf(a);
+        case "installed":
+          return a.installDate;
+        case "lastUsed":
+          return lastUsedOf(a);
+      }
+    };
+    return [...list].sort((x, y) => {
+      const a = value(x);
+      const b = value(y);
+      // Unknown values always go last, whichever way the column is sorted.
+      if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
+      const order = a < b ? -1 : a > b ? 1 : 0;
+      return sort.desc ? -order : order;
+    });
+  }, [apps, details, query, sort]);
+
+  function onSort(key: SortKey) {
+    // Size and dates are most useful biggest / newest first.
+    setSort((s) => (s.key === key ? { key, desc: !s.desc } : { key, desc: key !== "name" }));
+  }
 
   async function uninstall(app: InstalledApp) {
     setConfirming(null);
@@ -187,6 +256,7 @@ function Uninstall() {
           onChange={(e) => setQuery(e.target.value)}
         />
         <span className="muted">{apps && plural(apps.length, "program", "programs")}</span>
+        {apps && !details && <span className="muted small">Measuring folders...</span>}
         <button className="secondary" onClick={load}>
           Refresh
         </button>
@@ -198,32 +268,53 @@ function Uninstall() {
           <table>
             <thead>
               <tr>
-                <th>Program</th>
+                <SortHeader label="Program" column="name" sort={sort} onSort={onSort} />
                 <th>Publisher</th>
-                <th className="num">Installed</th>
-                <th className="num">Size</th>
+                <SortHeader
+                  label="Installed"
+                  column="installed"
+                  sort={sort}
+                  onSort={onSort}
+                  className="num"
+                />
+                <SortHeader label="Last used" column="lastUsed" sort={sort} onSort={onSort} className="num" />
+                <SortHeader label="Size" column="size" sort={sort} onSort={onSort} className="num" />
                 <th />
               </tr>
             </thead>
             <tbody>
-              {shown.map((a) => (
-                <tr key={a.id}>
-                  <td>
-                    {a.name}
-                    {a.version && <div className="muted small">{a.version}</div>}
-                  </td>
-                  <td className="muted">{a.publisher}</td>
-                  <td className="num muted">{a.installDate}</td>
-                  <td className="num">{a.sizeBytes ? formatBytes(a.sizeBytes) : ""}</td>
-                  <td className="num">
-                    <button className="link" onClick={() => setConfirming(a)}>
-                      Uninstall
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {shown.map((a) => {
+                const size = sizeOf(a);
+                const lastUsed = lastUsedOf(a);
+                return (
+                  <tr key={a.id}>
+                    <td>
+                      {a.name}
+                      {a.version && <div className="muted small">{a.version}</div>}
+                    </td>
+                    <td className="muted">{a.publisher}</td>
+                    <td className="num muted nowrap">{a.installDate}</td>
+                    <td className="num muted nowrap">
+                      {lastUsed ? formatDate(lastUsed) : details ? "" : "..."}
+                    </td>
+                    <td className="num nowrap">{size !== null ? formatBytes(size) : details ? "" : "..."}</td>
+                    <td className="num">
+                      <button className="link" onClick={() => setConfirming(a)}>
+                        Uninstall
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        )}
+        {apps && details && (
+          <p className="muted small">
+            Last used comes from what Windows records when a program starts. Programs started by another
+            launcher, like Steam, may show no date. Restart ClearWin as administrator to read more of these
+            records.
+          </p>
         )}
       </section>
       {confirming && (

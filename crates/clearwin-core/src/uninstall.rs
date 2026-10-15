@@ -15,6 +15,8 @@ pub struct InstalledApp {
     /// `YYYY-MM-DD`, when known.
     pub install_date: Option<String>,
     pub size_bytes: Option<u64>,
+    /// Folder the program is installed in, when it can be told.
+    pub install_dir: Option<String>,
     #[serde(skip)]
     pub uninstall_command: String,
 }
@@ -30,6 +32,8 @@ pub struct RawEntry {
     /// In kilobytes, as Windows stores it.
     pub estimated_size_kb: Option<u32>,
     pub uninstall_string: Option<String>,
+    pub install_location: Option<String>,
+    pub display_icon: Option<String>,
     pub system_component: bool,
     pub parent_key_name: Option<String>,
     pub release_type: Option<String>,
@@ -46,6 +50,70 @@ fn format_date(raw: &str) -> Option<String> {
     let raw = raw.trim();
     (raw.len() == 8 && raw.bytes().all(|b| b.is_ascii_digit()))
         .then(|| format!("{}-{}-{}", &raw[..4], &raw[4..6], &raw[6..]))
+}
+
+/// Folder names that hold many programs, so they never count as one program's folder.
+const SHARED_FOLDERS: &[&str] = &[
+    "program files",
+    "program files (x86)",
+    "common files",
+    "programdata",
+    "package cache",
+    "installer",
+    "windows",
+    "system32",
+    "syswow64",
+    "temp",
+    "appdata",
+    "local",
+    "roaming",
+    "programs",
+    "users",
+];
+
+/// `C:\Program Files\App\` becomes `C:\Program Files\App`, or `None` when the folder is
+/// shared by many programs (a drive root, Program Files, Windows, an installer cache).
+pub fn program_folder(folder: &str) -> Option<String> {
+    let folder = folder.trim().trim_matches('"').trim_end_matches('\\');
+    if !crate::cmdline::is_windows_absolute(folder) {
+        return None;
+    }
+    let lower = folder.to_ascii_lowercase();
+    let parts: Vec<&str> = lower.split('\\').filter(|p| !p.is_empty()).collect();
+    let last = parts.last()?;
+    let shared = parts.len() < 2
+        || SHARED_FOLDERS.contains(last)
+        || parts.get(1) == Some(&"windows")
+        || parts
+            .iter()
+            .any(|p| *p == "package cache" || *p == "installer");
+    (!shared).then(|| folder.to_string())
+}
+
+/// Where a program lives: its InstallLocation, otherwise the folder of its icon or uninstaller.
+fn install_dir(e: &RawEntry) -> Option<String> {
+    if let Some(dir) = non_empty(&e.install_location).and_then(|d| program_folder(&d)) {
+        return Some(dir);
+    }
+    [&e.display_icon, &e.uninstall_string]
+        .into_iter()
+        .filter_map(non_empty)
+        .filter_map(|v| {
+            // Icons look like `C:\App\app.exe,0`.
+            let v = v.rsplit_once(',').map_or(v.as_str(), |(p, i)| {
+                if i.trim().parse::<i32>().is_ok() {
+                    p
+                } else {
+                    v.as_str()
+                }
+            });
+            let path = crate::cmdline::target_path(v)?
+                .to_string_lossy()
+                .into_owned();
+            let (parent, _) = path.rsplit_once('\\')?;
+            program_folder(parent)
+        })
+        .next()
 }
 
 /// Keeps entries "Apps & features" would show: named, uninstallable, and not
@@ -71,6 +139,7 @@ pub fn visible_apps(raw: Vec<RawEntry>) -> Vec<InstalledApp> {
                     .estimated_size_kb
                     .filter(|&kb| kb > 0)
                     .map(|kb| kb as u64 * 1024),
+                install_dir: install_dir(&e),
                 id: e.key,
             })
         })
@@ -149,6 +218,8 @@ mod imp {
                     install_date: s("InstallDate"),
                     estimated_size_kb: key.get_value::<u32, _>("EstimatedSize").ok(),
                     uninstall_string: s("UninstallString"),
+                    install_location: s("InstallLocation"),
+                    display_icon: s("DisplayIcon"),
                     system_component: key.get_value::<u32, _>("SystemComponent").ok() == Some(1),
                     parent_key_name: s("ParentKeyName"),
                     release_type: s("ReleaseType"),
@@ -229,6 +300,32 @@ mod tests {
         assert_eq!(names, vec!["7-Zip", "Zoom"]);
         assert_eq!(apps[1].install_date.as_deref(), Some("2024-01-31"));
         assert_eq!(apps[1].size_bytes, Some(2048));
+    }
+
+    #[test]
+    fn finds_the_program_folder_but_not_shared_ones() {
+        assert_eq!(
+            program_folder(r"C:\Program Files\Zoom\"),
+            Some(r"C:\Program Files\Zoom".into())
+        );
+        assert_eq!(program_folder(r"C:\Program Files"), None);
+        assert_eq!(program_folder(r"C:\"), None);
+        assert_eq!(program_folder(r"C:\Windows\System32"), None);
+        assert_eq!(program_folder(r"C:\ProgramData\Package Cache\{abc}"), None);
+        assert_eq!(program_folder("relative"), None);
+
+        let mut game = entry("Game");
+        game.display_icon = Some(r#""D:\Games\Apex\r5apex.exe",0"#.into());
+        assert_eq!(install_dir(&game), Some(r"D:\Games\Apex".into()));
+        game.install_location = Some(r"E:\SteamLibrary\steamapps\common\Apex Legends".into());
+        assert_eq!(
+            install_dir(&game),
+            Some(r"E:\SteamLibrary\steamapps\common\Apex Legends".into())
+        );
+        // An MSI uninstaller says nothing about where the program is.
+        let mut msi = entry("Tool");
+        msi.uninstall_string = Some(r"MsiExec.exe /X{ABC}".into());
+        assert_eq!(install_dir(&msi), None);
     }
 
     #[test]
