@@ -4,6 +4,7 @@
 //! [`scan`] builds a list of exactly what would be removed, and [`clean`]
 //! deletes only entries from that list, re-checking each one first.
 
+pub mod app_usage;
 mod catalog;
 pub mod cmdline;
 pub mod defender;

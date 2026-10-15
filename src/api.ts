@@ -131,6 +131,14 @@ export interface InstalledApp {
   version: string | null;
   installDate: string | null;
   sizeBytes: number | null;
+  installDir: string | null;
+}
+
+export interface AppDetails {
+  id: string;
+  /** Size of the install folder, only when the program reported none. */
+  measuredBytes: number | null;
+  lastUsed: number | null;
 }
 
 export interface RegistryIssue {
@@ -158,6 +166,7 @@ export const toolsApi = {
   listStartup: () => invoke<StartupItem[]>("list_startup"),
   setStartupEnabled: (id: string, enabled: boolean) => invoke<void>("set_startup_enabled", { id, enabled }),
   listApps: () => invoke<InstalledApp[]>("list_apps"),
+  appDetails: () => invoke<AppDetails[]>("app_details"),
   uninstallApp: (id: string) => invoke<void>("uninstall_app", { id }),
   scanRegistry: () => invoke<RegistryIssue[]>("scan_registry"),
   fixRegistry: (ids: number[]) => invoke<FixReport>("fix_registry", { ids }),

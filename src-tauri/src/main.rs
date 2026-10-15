@@ -51,6 +51,7 @@ fn main() {
             tools::list_startup,
             tools::set_startup_enabled,
             tools::list_apps,
+            tools::app_details,
             tools::uninstall_app,
             tools::scan_registry,
             tools::fix_registry,
