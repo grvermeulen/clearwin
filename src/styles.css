@@ -812,6 +812,18 @@ span.warn {
 .health-list li.state-unknown .dot {
   background: var(--muted);
 }
+.update-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+tr.row-active td {
+  background: rgba(37, 99, 235, 0.08);
+}
 th.sortable {
   cursor: pointer;
   user-select: none;

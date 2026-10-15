@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, updatesApi, type DriverScan, type SoftwareUpdate } from "../api";
 import { formatBytes, formatDate, plural } from "../format";
 
@@ -29,16 +29,23 @@ export default function Updates() {
   );
 }
 
+type Outcome = { state: "waiting" | "updating" | "done" } | { state: "failed"; error: string };
+
 function Software() {
   const [updates, setUpdates] = useState<SoftwareUpdate[] | null>(null);
   const [checking, setChecking] = useState(false);
-  /** Package ids being updated right now; "*" means all. */
-  const [working, setWorking] = useState<Set<string>>(new Set());
+  /** What happened to each package in this session, by id. */
+  const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
+  /** Progress of an "Update all" run. */
+  const [run, setRun] = useState<{ total: number; finished: number; current: string } | null>(null);
+  const stopRequested = useRef(false);
+  const [stopping, setStopping] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   async function check() {
     setChecking(true);
     setMessage(null);
+    setOutcomes({});
     try {
       setUpdates(await updatesApi.listSoftware());
     } catch (e) {
@@ -51,27 +58,52 @@ function Software() {
     check();
   }, []);
 
-  async function update(id: string | null) {
-    const key = id ?? "*";
-    setWorking((w) => new Set(w).add(key));
-    setMessage(null);
+  const setOutcome = (id: string, outcome: Outcome) => setOutcomes((o) => ({ ...o, [id]: outcome }));
+
+  /** Updates one program and records how it went; never throws. */
+  async function updateOne(u: SoftwareUpdate): Promise<boolean> {
+    setOutcome(u.id, { state: "updating" });
     try {
-      await updatesApi.updateSoftware(id);
-      if (id) setUpdates((u) => (u ?? []).filter((x) => x.id !== id));
-      else await check();
-      setMessage(id ? "Updated." : "All programs that could be updated have been updated.");
+      await updatesApi.updateSoftware(u.id);
+      setOutcome(u.id, { state: "done" });
+      return true;
     } catch (e) {
-      setMessage(String(e));
-    } finally {
-      setWorking((w) => {
-        const next = new Set(w);
-        next.delete(key);
-        return next;
-      });
+      setOutcome(u.id, { state: "failed", error: String(e) });
+      return false;
     }
   }
 
-  const all = working.has("*");
+  async function updateAll() {
+    const todo = (updates ?? []).filter((u) => outcomes[u.id]?.state !== "done");
+    stopRequested.current = false;
+    setStopping(false);
+    setMessage(null);
+    setOutcomes((o) => ({
+      ...o,
+      ...Object.fromEntries(todo.map((u) => [u.id, { state: "waiting" } as Outcome])),
+    }));
+    let ok = 0;
+    let failed = 0;
+    for (const [i, u] of todo.entries()) {
+      if (stopRequested.current) break;
+      setRun({ total: todo.length, finished: i, current: u.name });
+      // A failure is recorded on its row and the next program goes ahead.
+      if (await updateOne(u)) ok++;
+      else failed++;
+    }
+    setRun(null);
+    // Anything not reached after Stop goes back to plain "Update".
+    setOutcomes((o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v.state !== "waiting")));
+    setMessage(
+      `Updated ${plural(ok, "program", "programs")}.` +
+        (failed ? ` ${plural(failed, "update", "updates")} failed; the reason is shown on each one.` : "") +
+        (stopRequested.current ? " Stopped before the rest." : ""),
+    );
+  }
+
+  const running = run !== null;
+  const failedCount = Object.values(outcomes).filter((o) => o.state === "failed").length;
+  const untouched = (updates ?? []).filter((u) => !outcomes[u.id]).length;
   return (
     <>
       <div className="toolbar">
@@ -79,17 +111,36 @@ function Software() {
           Updates come from winget, the app installer built into Windows. Old versions are a common way in for
           viruses.
         </span>
-        <button className="secondary" disabled={checking || all} onClick={check}>
+        <button className="secondary" disabled={checking || running} onClick={check}>
           Check again
         </button>
-        <button
-          className="primary"
-          disabled={checking || all || !updates?.length}
-          onClick={() => update(null)}
-        >
-          {all ? "Updating..." : "Update all"}
-        </button>
+        {running ? (
+          <button
+            className="secondary"
+            disabled={stopping}
+            onClick={() => {
+              stopRequested.current = true;
+              setStopping(true);
+            }}
+          >
+            {stopping ? "Stopping..." : "Stop after this one"}
+          </button>
+        ) : (
+          <button className="primary" disabled={checking || !(failedCount + untouched)} onClick={updateAll}>
+            {!failedCount ? "Update all" : untouched ? "Retry failed and update the rest" : "Retry failed"}
+          </button>
+        )}
       </div>
+      {run && (
+        <div className="update-progress">
+          <div>
+            Updating <strong>{run.current}</strong> ({run.finished + 1} of {run.total})
+          </div>
+          <div className="meter">
+            <div style={{ width: `${(run.finished / run.total) * 100}%` }} />
+          </div>
+        </div>
+      )}
       {message && <div className="banner">{message}</div>}
       <section className="results">
         {checking && (
@@ -110,25 +161,34 @@ function Software() {
                 <th>Program</th>
                 <th>Installed</th>
                 <th>New version</th>
-                <th />
+                <th className="num">Status</th>
               </tr>
             </thead>
             <tbody>
-              {updates.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    {u.name}
-                    <div className="muted small">{u.id}</div>
-                  </td>
-                  <td className="muted">{u.version}</td>
-                  <td>{u.available}</td>
-                  <td className="num">
-                    <button className="link" disabled={all || working.has(u.id)} onClick={() => update(u.id)}>
-                      {working.has(u.id) ? "Updating..." : "Update"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {updates.map((u) => {
+                const o = outcomes[u.id];
+                return (
+                  <tr key={u.id} className={o?.state === "updating" ? "row-active" : ""}>
+                    <td>
+                      {u.name}
+                      <div className="muted small">{u.id}</div>
+                      {o?.state === "failed" && <div className="warn">{o.error}</div>}
+                    </td>
+                    <td className="muted">{u.version}</td>
+                    <td>{u.available}</td>
+                    <td className="num nowrap">
+                      {o?.state === "updating" && <span>Updating...</span>}
+                      {o?.state === "waiting" && <span className="muted">Waiting</span>}
+                      {o?.state === "done" && <span className="good">Updated</span>}
+                      {(!o || o.state === "failed") && (
+                        <button className="link" disabled={running} onClick={() => updateOne(u)}>
+                          {o?.state === "failed" ? "Retry" : "Update"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
