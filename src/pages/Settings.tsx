@@ -32,7 +32,12 @@ export default function Settings() {
   }
 
   if (!settings)
-    return <div className="page">{message && <div className="banner error">{message}</div>}</div>;
+    return (
+      <div className="page">
+        {message && <div className="banner error">{message}</div>}
+        <UpdatesCard />
+      </div>
+    );
 
   return (
     <div className="page">
@@ -40,6 +45,8 @@ export default function Settings() {
         <h1>Settings</h1>
       </header>
       {message && <div className="banner">{message}</div>}
+
+      <UpdatesCard />
 
       <ScheduleCard
         schedule={settings.schedule}
@@ -116,8 +123,6 @@ export default function Settings() {
         </div>
       </section>
 
-      <UpdatesCard />
-
       <section className="card">
         <h2>History</h2>
         {history.length === 0 ? (
@@ -193,7 +198,9 @@ function UpdatesCard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getVersion().then(setVersion);
+    getVersion()
+      .then(setVersion)
+      .catch(() => setVersion("unknown"));
   }, []);
 
   async function checkNow() {
@@ -222,10 +229,12 @@ function UpdatesCard() {
 
   return (
     <section className="card">
-      <h2>Updates</h2>
+      <h2>About ClearWin</h2>
+      <p className="version-line">
+        Version <strong>{version || "..."}</strong>
+      </p>
       <p className="muted">
-        You're on ClearWin {version}. ClearWin checks for new versions when it starts, and installs them
-        without the Windows warning.
+        ClearWin checks for new versions when it starts, and installs them without the Windows warning.
       </p>
       <div className="actions left">
         {update ? (
@@ -237,7 +246,8 @@ function UpdatesCard() {
             {state === "checking" ? "Checking..." : "Check for updates"}
           </button>
         )}
-        {state === "current" && <span className="good">You have the latest version.</span>}
+        {update && <span className="muted">Version {update.version} is available.</span>}
+        {state === "current" && <span className="good">ClearWin is up to date.</span>}
         {error && <span className="warn">{error}</span>}
       </div>
     </section>
