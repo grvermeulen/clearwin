@@ -831,3 +831,8 @@ th.sortable {
 th.sortable:hover {
   color: var(--text);
 }
+
+.version-line {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
