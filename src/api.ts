@@ -244,6 +244,14 @@ export interface SoftwareUpdate {
   source: string;
 }
 
+/** What ClearWin can try when a program update fails. */
+export type UpdateFix = "runAsAdmin" | "closeAndRetry" | "reinstall";
+
+export interface UpdateFailure {
+  reason: string;
+  fix: UpdateFix | null;
+}
+
 export interface DriverUpdate {
   id: string;
   title: string;
@@ -275,6 +283,9 @@ export interface InstallResult {
 export const updatesApi = {
   listSoftware: () => invoke<SoftwareUpdate[]>("list_software_updates"),
   updateSoftware: (id: string | null) => invoke<void>("update_software", { id }),
+  fixSoftwareUpdate: (fix: UpdateFix, update: SoftwareUpdate) =>
+    invoke<void>("fix_software_update", { fix, update }),
+  ignoreSoftwareUpdate: (id: string) => invoke<void>("ignore_software_update", { id }),
   scanDrivers: () => invoke<DriverScan>("scan_drivers"),
   installDrivers: (ids: string[]) => invoke<InstallResult>("install_drivers", { ids }),
 };

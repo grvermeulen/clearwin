@@ -70,6 +70,8 @@ fn main() {
             settings::set_browser_close_cleaning,
             updates::list_software_updates,
             updates::update_software,
+            updates::fix_software_update,
+            updates::ignore_software_update,
             updates::scan_drivers,
             updates::install_drivers,
             performance::system_info,
