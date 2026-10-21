@@ -270,7 +270,16 @@ pub fn install_args(id: &str, source: &str) -> Vec<String> {
 
 /// A PowerShell single-quoted string, which takes everything literally.
 fn ps_str(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "''"))
+    let mut out = String::from("'");
+    for c in s.chars() {
+        out.push(c);
+        // PowerShell also ends a quoted string at typographic single quotes.
+        if matches!(c, '\'' | '\u{2018}' | '\u{2019}' | '\u{201A}' | '\u{201B}') {
+            out.push(c);
+        }
+    }
+    out.push('\'');
+    out
 }
 
 fn ps_array(args: &[String]) -> String {
@@ -350,9 +359,12 @@ pub fn program_dir_for(name: &str, apps: &[crate::uninstall::InstalledApp]) -> O
         Some(prefix) => app_name.starts_with(prefix.trim_end()),
         None => app_name.eq_ignore_ascii_case(name),
     };
-    apps.iter()
-        .filter(|a| matches(&a.name))
-        .find_map(|a| a.install_dir.clone())
+    let found: Vec<_> = apps.iter().filter(|a| matches(&a.name)).collect();
+    // A cut-off name that fits several programs could close the wrong one.
+    if name.ends_with('…') && found.len() != 1 {
+        return None;
+    }
+    found.into_iter().find_map(|a| a.install_dir.clone())
 }
 
 #[cfg(windows)]
@@ -628,6 +640,7 @@ Notepad++ (é) Notepad++.Npp  8.5    8.6         winget
         };
         let reinstall = fix_script(Fix::Reinstall, &update, None, r"C:\Temp\it's.log");
         assert!(reinstall.contains(r"$log = 'C:\Temp\it''s.log'"));
+        assert_eq!(ps_str("O\u{2019}Brien"), "'O\u{2019}\u{2019}Brien'");
         let uninstall = reinstall
             .find("'uninstall', '--id', 'Jellyfin.Server'")
             .unwrap();
@@ -671,5 +684,10 @@ Notepad++ (é) Notepad++.Npp  8.5    8.6         winget
             Some(r"C:\Jellyfin")
         );
         assert_eq!(program_dir_for("Slack", &apps), None);
+        let twins = [
+            app("Jellyfin Server", r"C:\A"),
+            app("Jellyfin Media Player", r"C:\B"),
+        ];
+        assert_eq!(program_dir_for("Jellyfin…", &twins), None);
     }
 }

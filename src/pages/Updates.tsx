@@ -54,6 +54,7 @@ const FIXES: Record<UpdateFix, { label: string; hint: string; confirm?: string }
   closeAndRetry: {
     label: "Close it and update",
     hint: "Closes the program and stops its background services, updates, then starts the services again. Unsaved work in it is lost.",
+    confirm: "Close and update",
   },
   reinstall: {
     label: "Reinstall new version",
@@ -121,16 +122,19 @@ function Software() {
   }
 
   async function ignore(u: SoftwareUpdate) {
+    const before = outcomes[u.id];
+    setOutcome(u.id, { state: "updating" });
     try {
       await updatesApi.ignoreSoftwareUpdate(u.id);
       setOutcome(u.id, { state: "ignored" });
     } catch (e) {
+      setOutcome(u.id, before);
       setMessage(String(e));
     }
   }
 
   async function updateAll() {
-    const todo = (updates ?? []).filter((u) => !["done", "ignored"].includes(outcomes[u.id]?.state ?? ""));
+    const todo = (updates ?? []).filter((u) => !["done", "ignored", "updating"].includes(outcomes[u.id]?.state ?? ""));
     stopRequested.current = false;
     setStopping(false);
     setMessage(null);
@@ -160,6 +164,8 @@ function Software() {
   }
 
   const running = run !== null;
+  // A single-row fix counts too, so two winget runs never touch the same program.
+  const busy = running || Object.values(outcomes).some((o) => o.state === "updating");
   const failedCount = Object.values(outcomes).filter((o) => o.state === "failed").length;
   const untouched = (updates ?? []).filter((u) => !outcomes[u.id]).length;
   return (
@@ -169,7 +175,7 @@ function Software() {
           Updates come from winget, the app installer built into Windows. Old versions are a common way in for
           viruses.
         </span>
-        <button className="secondary" disabled={checking || running} onClick={check}>
+        <button className="secondary" disabled={checking || busy} onClick={check}>
           Check again
         </button>
         {running ? (
@@ -184,7 +190,7 @@ function Software() {
             {stopping ? "Stopping..." : "Stop after this one"}
           </button>
         ) : (
-          <button className="primary" disabled={checking || !(failedCount + untouched)} onClick={updateAll}>
+          <button className="primary" disabled={checking || busy || !(failedCount + untouched)} onClick={updateAll}>
             {!failedCount ? "Update all" : untouched ? "Retry failed and update the rest" : "Retry failed"}
           </button>
         )}
@@ -236,7 +242,7 @@ function Software() {
                           {confirming === u.id ? (
                             <>
                               <span className="muted">{FIXES[o.fix].hint} </span>
-                              <button className="link" disabled={running} onClick={() => applyFix(u, o.fix!)}>
+                              <button className="link" disabled={busy} onClick={() => applyFix(u, o.fix!)}>
                                 {FIXES[o.fix].confirm}
                               </button>{" "}
                               <button className="link" onClick={() => setConfirming(null)}>
@@ -247,7 +253,7 @@ function Software() {
                             <>
                               <button
                                 className="link"
-                                disabled={running}
+                                disabled={busy}
                                 title={FIXES[o.fix].hint}
                                 onClick={() =>
                                   FIXES[o.fix!].confirm ? setConfirming(u.id) : applyFix(u, o.fix!)
@@ -260,7 +266,7 @@ function Software() {
                                   {" or "}
                                   <button
                                     className="link"
-                                    disabled={running}
+                                    disabled={busy}
                                     title="Stops winget from offering updates for this program."
                                     onClick={() => ignore(u)}
                                   >
@@ -281,7 +287,7 @@ function Software() {
                       {o?.state === "done" && <span className="good">Updated</span>}
                       {o?.state === "ignored" && <span className="muted">Ignored</span>}
                       {(!o || o.state === "failed") && (
-                        <button className="link" disabled={running} onClick={() => updateOne(u)}>
+                        <button className="link" disabled={busy} onClick={() => updateOne(u)}>
                           {o?.state === "failed" ? "Retry" : "Update"}
                         </button>
                       )}
