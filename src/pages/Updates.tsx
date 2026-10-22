@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { api, updatesApi, type DriverScan, type SoftwareUpdate } from "../api";
+import {
+  api,
+  updatesApi,
+  type DriverScan,
+  type SoftwareUpdate,
+  type UpdateFailure,
+  type UpdateFix,
+} from "../api";
 import { formatBytes, formatDate, plural } from "../format";
 
 type Tab = "software" | "drivers";
@@ -29,7 +36,32 @@ export default function Updates() {
   );
 }
 
-type Outcome = { state: "waiting" | "updating" | "done" } | { state: "failed"; error: string };
+type Outcome =
+  | { state: "waiting" | "updating" | "done" | "ignored" }
+  | { state: "failed"; error: string; fix: UpdateFix | null };
+
+/** Commands send back either a plain message or a failure with a suggested fix. */
+function asFailure(e: unknown): UpdateFailure {
+  if (e && typeof e === "object" && "reason" in e) return e as UpdateFailure;
+  return { reason: String(e), fix: null };
+}
+
+const FIXES: Record<UpdateFix, { label: string; hint: string; confirm?: string }> = {
+  runAsAdmin: {
+    label: "Update as administrator",
+    hint: "Windows asks for permission first.",
+  },
+  closeAndRetry: {
+    label: "Close it and update",
+    hint: "Closes the program and stops its background services, updates, then starts the services again. Unsaved work in it is lost.",
+    confirm: "Close and update",
+  },
+  reinstall: {
+    label: "Reinstall new version",
+    hint: "Removes the installed version, then installs the new one. Settings usually stay, but check afterwards.",
+    confirm: "Remove and reinstall",
+  },
+};
 
 function Software() {
   const [updates, setUpdates] = useState<SoftwareUpdate[] | null>(null);
@@ -68,13 +100,41 @@ function Software() {
       setOutcome(u.id, { state: "done" });
       return true;
     } catch (e) {
-      setOutcome(u.id, { state: "failed", error: String(e) });
+      const { reason, fix } = asFailure(e);
+      setOutcome(u.id, { state: "failed", error: reason, fix });
       return false;
     }
   }
 
+  /** The program whose fix waits for a second click to confirm, by id. */
+  const [confirming, setConfirming] = useState<string | null>(null);
+
+  async function applyFix(u: SoftwareUpdate, fix: UpdateFix) {
+    setConfirming(null);
+    setOutcome(u.id, { state: "updating" });
+    try {
+      await updatesApi.fixSoftwareUpdate(fix, u);
+      setOutcome(u.id, { state: "done" });
+    } catch (e) {
+      const { reason, fix: next } = asFailure(e);
+      setOutcome(u.id, { state: "failed", error: reason, fix: next });
+    }
+  }
+
+  async function ignore(u: SoftwareUpdate) {
+    const before = outcomes[u.id];
+    setOutcome(u.id, { state: "updating" });
+    try {
+      await updatesApi.ignoreSoftwareUpdate(u.id);
+      setOutcome(u.id, { state: "ignored" });
+    } catch (e) {
+      setOutcome(u.id, before);
+      setMessage(String(e));
+    }
+  }
+
   async function updateAll() {
-    const todo = (updates ?? []).filter((u) => outcomes[u.id]?.state !== "done");
+    const todo = (updates ?? []).filter((u) => !["done", "ignored", "updating"].includes(outcomes[u.id]?.state ?? ""));
     stopRequested.current = false;
     setStopping(false);
     setMessage(null);
@@ -96,12 +156,16 @@ function Software() {
     setOutcomes((o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v.state !== "waiting")));
     setMessage(
       `Updated ${plural(ok, "program", "programs")}.` +
-        (failed ? ` ${plural(failed, "update", "updates")} failed; the reason is shown on each one.` : "") +
+        (failed
+          ? ` ${plural(failed, "update", "updates")} failed; the reason and, where ClearWin can, a fix are shown on each one.`
+          : "") +
         (stopRequested.current ? " Stopped before the rest." : ""),
     );
   }
 
   const running = run !== null;
+  // A single-row fix counts too, so two winget runs never touch the same program.
+  const busy = running || Object.values(outcomes).some((o) => o.state === "updating");
   const failedCount = Object.values(outcomes).filter((o) => o.state === "failed").length;
   const untouched = (updates ?? []).filter((u) => !outcomes[u.id]).length;
   return (
@@ -111,7 +175,7 @@ function Software() {
           Updates come from winget, the app installer built into Windows. Old versions are a common way in for
           viruses.
         </span>
-        <button className="secondary" disabled={checking || running} onClick={check}>
+        <button className="secondary" disabled={checking || busy} onClick={check}>
           Check again
         </button>
         {running ? (
@@ -126,7 +190,7 @@ function Software() {
             {stopping ? "Stopping..." : "Stop after this one"}
           </button>
         ) : (
-          <button className="primary" disabled={checking || !(failedCount + untouched)} onClick={updateAll}>
+          <button className="primary" disabled={checking || busy || !(failedCount + untouched)} onClick={updateAll}>
             {!failedCount ? "Update all" : untouched ? "Retry failed and update the rest" : "Retry failed"}
           </button>
         )}
@@ -173,6 +237,47 @@ function Software() {
                       {u.name}
                       <div className="muted small">{u.id}</div>
                       {o?.state === "failed" && <div className="warn">{o.error}</div>}
+                      {o?.state === "failed" && o.fix && (
+                        <div className="small">
+                          {confirming === u.id ? (
+                            <>
+                              <span className="muted">{FIXES[o.fix].hint} </span>
+                              <button className="link" disabled={busy} onClick={() => applyFix(u, o.fix!)}>
+                                {FIXES[o.fix].confirm}
+                              </button>{" "}
+                              <button className="link" onClick={() => setConfirming(null)}>
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                className="link"
+                                disabled={busy}
+                                title={FIXES[o.fix].hint}
+                                onClick={() =>
+                                  FIXES[o.fix!].confirm ? setConfirming(u.id) : applyFix(u, o.fix!)
+                                }
+                              >
+                                {FIXES[o.fix].label}
+                              </button>
+                              {o.fix === "reinstall" && (
+                                <>
+                                  {" or "}
+                                  <button
+                                    className="link"
+                                    disabled={busy}
+                                    title="Stops winget from offering updates for this program."
+                                    onClick={() => ignore(u)}
+                                  >
+                                    stop offering this update
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="muted">{u.version}</td>
                     <td>{u.available}</td>
@@ -180,8 +285,9 @@ function Software() {
                       {o?.state === "updating" && <span>Updating...</span>}
                       {o?.state === "waiting" && <span className="muted">Waiting</span>}
                       {o?.state === "done" && <span className="good">Updated</span>}
+                      {o?.state === "ignored" && <span className="muted">Ignored</span>}
                       {(!o || o.state === "failed") && (
-                        <button className="link" disabled={running} onClick={() => updateOne(u)}>
+                        <button className="link" disabled={busy} onClick={() => updateOne(u)}>
                           {o?.state === "failed" ? "Retry" : "Update"}
                         </button>
                       )}
